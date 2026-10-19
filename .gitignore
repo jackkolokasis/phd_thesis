@@ -1,0 +1,25 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.toc
+*.out
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.run.xml
+*.synctex.gz
+*.synctex(busy)
+*.xdv
+
+# Generated thesis PDF (the template PDF is a reference and stays tracked)
+Dissertation_MAIN.pdf

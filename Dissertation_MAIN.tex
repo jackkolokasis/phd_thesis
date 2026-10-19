@@ -1,0 +1,197 @@
+\RequirePackage{fix-cm}
+\documentclass[11pt]{book}
+
+\input{libtex/alias}
+
+\usepackage{amssymb,amsfonts,amsmath}
+\usepackage{epsfig}
+\usepackage{subfig}
+\usepackage{url}
+\usepackage{dsfont}
+\usepackage[table]{xcolor}
+\usepackage{multirow,tabularx}
+\usepackage{paralist}
+\usepackage{fancyvrb}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage[nomove]{cite}
+
+\usepackage{pifont}
+\usepackage{afterpage}
+\usepackage[protrusion=true,expansion=false]{microtype}
+\usepackage{titlesec, blindtext}
+\usepackage{lscape}
+\usepackage{libtex/fancyhdr}
+
+\usepackage{libtex/utepcsthesisReview}
+\usepackage{srcltx}
+\usepackage[printonlyused]{acronym}
+\usepackage{setspace}
+%\usepackage[k-loose,tight,k-tight]{minitoc}
+\usepackage{phaistos}
+\usepackage{pifont}
+%\usepackage{libertine}
+%%% FONTS %%%%
+\usepackage{gfsdidot}
+\usepackage{utopia}
+%\usepackage{gfsartemisia-euler}
+%\usepackage{gfsartemisia}
+%\usepackage{tgpagella}
+%\usepackage{bera}
+%\usepackage{fourier}
+
+%\usepackage{venturis}
+
+%\usepackage{epsf}
+%\usepackage{hyperref}
+%\usepackage{setspace}
+%\hypersetup{pdftex,colorlinks=false,allcolors=blue}
+%\usepackage{hypcap}
+
+
+\titleformat{\chapter}[block]
+ {%\rule{1in}{1in}% (to auto-insert graphic use) \includegraphics{\chaptername-\thechapter-graphic}
+ %\TitleSymbol
+  \normalfont\huge\bfseries}
+  {\\\chaptertitlename\ \thechapter\\}
+  {0pt}
+  {\Huge}
+\titlespacing*{\chapter}{0pt}{0pt}{40pt}
+
+%By default, LaTeX doesn't like to fill more than 0.7 of a text page with tables and graphics,
+%nor does it like too many figures per page. This behaviour can be changed by the following:
+\renewcommand\floatpagefraction{.9}
+\renewcommand\topfraction{.9}
+\renewcommand\bottomfraction{.9}
+\renewcommand\textfraction{.1}
+\setcounter{totalnumber}{50}
+\setcounter{topnumber}{50}
+\setcounter{bottomnumber}{50}
+
+
+\urldef{\mails}\path|fafalios@csd.uoc.gr|
+\newcommand{\keywords}[1]{\par\addvspace\baselineskip
+\noindent\keywordname\enspace\ignorespaces#1}
+
+\long\def\comment#1{}
+
+%%% Thesis Title %%%%
+\newcommand{\thesistitle}[0]{Thesis Title}
+%%%%%%%%%%%%%%%%%%%%%
+
+%%% FOR WRITING GREEK %%%
+\usepackage[greek,american]{babel}
+\usepackage[utf8]{inputenc}
+\newcommand{\selg}[0]{\selectlanguage{greek}}
+\newcommand{\selam}[0]{\selectlanguage{american}}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\baselinestretch}{1}\small\normalsize
+\textwidth=440pt
+\oddsidemargin = 30pt
+\evensidemargin = -16pt
+
+\makeindex
+
+\thispagestyle{empty} \pagestyle{empty}
+
+%%%% FOR NEW AND INTERNAL CONTENT USE: %%%%
+\newcommand{\new}[1]{{\color{red}#1}}
+\newcommand{\internal}[1]{
+  \footnote{
+          \fbox{{\tiny InternalNote:}}
+          {\tt\em
+                #1
+          }
+      }
+  }
+ \newcommand{\draft}[1]{
+          \noindent
+          \fbox{DRAFT:}
+          {\tt\bf
+               #1
+          }
+  }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+\long\def\symbolfootnote[#1]#2
+    {\begingroup
+    \def\thefootnote{\fnsymbol{footnote}}\footnote[#1]{#2}
+    \endgroup}
+
+\newcommand{\workperformedat}{\symbolfootnote[0]{This work has been
+    performed at the University of Crete, School of Sciences and
+Engineering, Computer Science Department.}}
+
+\newcommand{\worksupportedby}{\symbolfootnote[0]{The work has been
+    supported by the Foundation for Research and Technology - Hellas (FORTH),
+    Institute of Computer Science (ICS).}}
+
+\newcommand{\thesisdate}{June 2026}
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% SIGNATURES, DEDICATION, ACKS, ABSTRACTS, TOC %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \input{tex_pre/Dissertation_PRE_declaration}
+\input{tex_pre/Dissertation_PRE_firstpages.tex}
+%
+\input{tex_pre/Dissertation_PRE_dedication.tex}
+%
+\input{tex_pre/Dissertation_PRE_acknowledgements.tex}
+%
+\input{tex_pre/Dissertation_PRE_abstract.tex}
+%
+\input{tex_pre/Dissertation_PRE_abstractGreek.tex}
+%
+\input{tex_pre/Dissertation_PRE_toc.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% INTRO, CONTEXT, BACKGROUND & RW %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{Dissertation_introduction.tex}
+%\input{Dissertation_context.tex}
+%\input{Dissertation_bgrw.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% MAIN BODY  %%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\input{Dissertation_approach_configurability.tex}
+%\input{Dissertation_approach_stochasticAnalysis}
+%\input{Dissertation_approach_interactionmodel.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% CONCLUSION, BIB, APPENDIX %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{Dissertation_conclusion.tex}
+
+\bibliographystyle{plain}
+%
+\cleardoublepage \addcontentsline{toc}{chapter}{Bibliography}
+%
+\bibliography{bib/Dissertation}
+
+\input{Dissertation_appendix.tex}
+
+\clearpage
+%
+\newpage
+%
+\pagestyle{plain} \thispagestyle{empty} \mbox{}
+
+\clearpage
+%
+\newpage
+%
+\pagestyle{plain} \thispagestyle{empty}
+
+\end{document}
