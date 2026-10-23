@@ -14,7 +14,8 @@ Prior work~\cite{wang:bridgegc,khanh:yak,gog:broom,lu:deca,bruno:n2gc} has tried
 Although these approaches reduce GC cost, the cache still resides in DRAM, whose capacity is limited and whose cost per gigabyte is high and rising as demand grows~\cite{damon, zombieland, tirmazi:borg, weiner:tmo}.
 
 To overcome DRAM capacity limitations, modern applications~\cite{vohra:hbase,zaharia:spark,opensearch:tiered-cache} extend their caches to high-capacity storage devices, such as NVMe SSDs.
-Although this approach increases cache capacity, it introduces I/O and S/D overhead when accessing cached objects.
+This off-memory approach introduces I/O, but it has the potential to further reduce recomputation due to the increasing density and capacity of NVMe SSDs~\cite{apapag:fmap,apapag:aquila}.
+Yet off-memory approaches also incur significant object S/D overhead when accessing cached objects.
 An alternative is to back the JVM heap with a storage device through memory-mapped I/O using the JVM option \texttt{-XX:AllocateHeapAt} or through OS swapping, allowing applications to access Java objects directly without S/D.
 However, existing garbage collectors are designed for DRAM-backed heaps and incur high I/O overhead when scanning and compacting objects on storage-backed heaps~\cite{wang:memliner,khanh:polar,teraheap,kolokasis:teracache}.
 Therefore, extending the JVM heap to storage requires GC mechanisms that minimize storage I/O while preserving direct access to JVM objects.
