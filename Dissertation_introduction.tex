@@ -3,36 +3,36 @@
 \chapter{Introduction}
 \label{chapter:intro}
 
+Data-intensive applications running on the Java Virtual Machine (JVM), such as analytics frameworks~\cite{zaharia:spark,giraph}, key-value stores~\cite{lakshman:cassandra,vohra:hbase,santos:infinispan}, and search engines~\cite{mccandless:lucene,elastic_search,solr,opensearch}, rely on in-memory caches to avoid repeated computations, improving application throughput and reducing response latency.
+For instance, Spark~\cite{zaharia:spark} caches intermediate computation results to avoid recomputing them across iterative processing stages, while HBase~\cite{vohra:hbase} maintains a block cache to reduce storage accesses and improve query latency.
+As datasets grow, maintaining large caches on the JVM heap increases DRAM requirements and can increase garbage collection (GC) overhead, as long-lived cached objects remain reachable across collection cycles~\cite{mitchel:bloat,teraheap}.
 
+To reduce GC overhead, popular applications~\cite{lakshman:cassandra,vohra:hbase,zaharia:spark} move the result cache in a region of memory outside the JVM heap (off-heap).
+Unfortunately, off-heap caches introduce significant serialization and deserialization (S/D) overhead for applications that use complex data structures~\cite{ibanez:zerializer,matei:champions,nguyen:skyway}.
+Applications can avoid S/D overhead using low-level APIs such as Unsafe~\cite{jep471} and the Foreign Function and Memory API~\cite{jep454}, or specialized data representations~\cite{arrow,spark_tungsten}, but these approaches do not transparently support arbitrary Java objects and require explicit management of data layouts and memory lifetimes.
+Prior work~\cite{wang:bridgegc,khanh:yak,gog:broom,lu:deca,bruno:n2gc} has tried to mitigate these costs by introducing annotations for long-lived cache objects and allowing the garbage collector to skip scanning them.
+Although these approaches reduce GC cost, the cache still resides in DRAM, whose capacity is limited and whose cost per gigabyte is high and rising as demand grows~\cite{damon, zombieland, tirmazi:borg, weiner:tmo}.
 
-\section{General Objective}
+To overcome DRAM capacity limitations, modern applications~\cite{vohra:hbase,zaharia:spark,opensearch:tiered-cache} extend their caches to high-capacity storage devices, such as NVMe SSDs.
+Although this approach increases cache capacity, it introduces I/O and S/D overhead when accessing cached objects.
+An alternative is to back the JVM heap with a storage device through memory-mapped I/O using the JVM option \texttt{-XX:AllocateHeapAt} or through OS swapping, allowing applications to access Java objects directly without S/D.
+However, existing garbage collectors are designed for DRAM-backed heaps and can incur substantial overhead when operating on storage-backed heaps.
+In particular, scanning objects during GC can trigger expensive storage accesses due to poor spatial locality~\cite{wang:memliner,khanh:polar}, while moving live objects during compaction generates additional I/O traffic~\cite{teraheap}.
+Therefore, extending the JVM heap to storage requires garbage-collection mechanisms that minimize storage I/O while preserving direct access to JVM objects.
 
-Web Searching is nowadays an integral part of our daily lives...
+% This dissertation proposes a storage-backed heap architecture that enables large result caches for data-intensive JVM applications while eliminating serialization/deserialization (S/D) overhead and expensive garbage collection (GC) scans over storage.
+% The architecture extends the JVM with two managed heaps: the collector's heap in DRAM (DH) and a second heap memory-mapped over an NVMe SSD (SH).
+% Objects migrated to SH retain their managed representation, allowing applications to access them directly without S/D.
+% To reduce GC overhead, the collector avoids scanning objects in SH while preserving memory safety.
+% Frameworks use the storage-backed heap through a hint-based interface without requiring modifications to applications running on top of them.
+% The storage-backed heap provides four key features.
 
+\begin{center}
+	\fbox{
+		\begin{minipage}{0.95\textwidth}
+			%
+			\textbf{Thesis statement:} We provide an efficient storage-backed heap that extends the JVM heap beyond DRAM for throughput-oriented and latency-sensitive applications.
+		\end{minipage}%
+	}
+\end{center}
 
-
-\section{Motivation and Vision}
-\label{sec:motivation}
-
-..
-
-
-\section{Research Questions}
-
-The research questions that this thesis aims at tackling are the following:...
-
-
-\section{The Approach}
-
-...
-
-
-\section{Contributions of this Dissertation}
-
-The key contributions of this thesis are the following:...
-
-
-
-\section{Outline of Dissertation}
-
-The rest of this dissertation is organized in the following way:...
