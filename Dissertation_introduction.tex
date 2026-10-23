@@ -20,12 +20,31 @@ An alternative is to back the JVM heap with a storage device through memory-mapp
 However, existing garbage collectors are designed for DRAM-backed heaps and incur high I/O overhead when scanning and compacting objects on storage-backed heaps~\cite{wang:memliner,khanh:polar,teraheap,kolokasis:teracache}.
 Therefore, extending the JVM heap to storage requires GC mechanisms that minimize storage I/O while preserving direct access to JVM objects.
 
-% This dissertation proposes a storage-backed heap architecture that enables large result caches for data-intensive JVM applications while eliminating serialization/deserialization (S/D) overhead and expensive garbage collection (GC) scans over storage.
-% The architecture extends the JVM with two managed heaps: the collector's heap in DRAM (DH) and a second heap memory-mapped over an NVMe SSD (SH).
-% Objects migrated to SH retain their managed representation, allowing applications to access them directly without S/D.
-% To reduce GC overhead, the collector avoids scanning objects in SH while preserving memory safety.
-% Frameworks use the storage-backed heap through a hint-based interface without requiring modifications to applications running on top of them.
-% The storage-backed heap provides four key features.
+This dissertation proposes using storage-backed heaps to extend the result caches of data-intensive JVM applications onto fast storage devices, eliminating S/D overhead while avoiding expensive GC scans of storage-resident objects.
+
+First, we investigate how to improve the performance of throughput-oriented applications by extending the JVM heap to high-capacity storage devices.
+We design and implement a storage-backed heap architecture that consists of two managed heaps: a DRAM heap (DH) and a storage heap (SH) memory-mapped over an NVMe SSD.
+Our approach uses a hint-based interface that allows frameworks to identify cached objects for migration to SH, while preserving their Java object representation and avoiding S/D.
+To reduce GC overhead, we prevent the collector from traversing objects in SH by tracking references between DH and SH, as well as references among SH regions, using metadata maintained in DRAM.
+We also organize SH into regions containing objects with similar lifetimes and reclaim entire regions when all their objects become unreachable.
+This approach avoids expensive object scanning and compaction over storage, trading storage capacity for reduced GC-related I/O.
+
+First, we investigate how to improve the performance of throughput-oriented applications by extending the JVM heap to high-capacity storage devices.
+We design and implement a storage-backed heap architecture that consists of two managed heaps: a DRAM heap (DH) and a storage heap (SH) memory-mapped over an NVMe SSD.
+Our approach uses a hint-based interface that allows frameworks to identify long-lived objects suitable for migration to SH, while preserving their Java object representation and avoiding S/D.
+To reduce GC overhead, we prevent the collector from traversing objects in SH by tracking references between DH and SH, as well as references among SH regions, using metadata maintained in DRAM.
+We also organize SH into regions containing objects with similar lifetimes and reclaim entire regions when all their objects become unreachable.
+This approach avoids expensive object scanning and compaction over storage, trading storage capacity for reduced GC-related I/O.
+
+Finally, we address the problem of dynamically partitioning DRAM between the JVM heap and the OS page cache to adapt to changes in application behavior.
+This problem is particularly important for storage-backed heaps, where DH competes with the OS page cache used to access objects in SH.
+The optimal division of DRAM depends on application memory requirements, which may vary across execution phases.
+Increasing the JVM heap size can reduce GC overhead but leaves less DRAM available for the OS page cache, potentially increasing I/O stalls.
+Conversely, shrinking the heap can reduce I/O stalls but increase GC overhead.
+Existing heap-resizing mechanisms primarily consider GC overhead and cannot effectively adapt to changing I/O demands.
+To overcome this limitation, we design and implement an I/O-aware heap-resizing mechanism that estimates the CPU time lost to GC and I/O stalls and dynamically adjusts the JVM heap size to reduce their combined cost.
+Our approach determines both the direction and the amount of resizing based on changes in these overheads during execution.
+Although this is a general memory-management problem for data-intensive JVM applications, the mechanism can also complement storage-backed heaps by adapting the DRAM allocated to DH and the memory available for caching SH objects as application requirements change.
 
 \begin{center}
 	\fbox{
@@ -36,3 +55,11 @@ Therefore, extending the JVM heap to storage requires GC mechanisms that minimiz
 	}
 \end{center}
 
+\section{Contributions}
+The specific contribution of this thesis are:
+\begin{enumerate}
+
+\end{enumerate}
+
+\section{Thesis Structure}
+The remainder of this thesis is organized as follows.
