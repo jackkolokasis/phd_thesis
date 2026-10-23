@@ -16,9 +16,8 @@ Although these approaches reduce GC cost, the cache still resides in DRAM, whose
 To overcome DRAM capacity limitations, modern applications~\cite{vohra:hbase,zaharia:spark,opensearch:tiered-cache} extend their caches to high-capacity storage devices, such as NVMe SSDs.
 Although this approach increases cache capacity, it introduces I/O and S/D overhead when accessing cached objects.
 An alternative is to back the JVM heap with a storage device through memory-mapped I/O using the JVM option \texttt{-XX:AllocateHeapAt} or through OS swapping, allowing applications to access Java objects directly without S/D.
-However, existing garbage collectors are designed for DRAM-backed heaps and can incur substantial overhead when operating on storage-backed heaps.
-In particular, scanning objects during GC can trigger expensive storage accesses due to poor spatial locality~\cite{wang:memliner,khanh:polar}, while moving live objects during compaction generates additional I/O traffic~\cite{teraheap}.
-Therefore, extending the JVM heap to storage requires garbage-collection mechanisms that minimize storage I/O while preserving direct access to JVM objects.
+However, existing garbage collectors are designed for DRAM-backed heaps and incur high I/O overhead when scanning and compacting objects on storage-backed heaps~\cite{wang:memliner,khanh:polar,teraheap,kolokasis:teracache}.
+Therefore, extending the JVM heap to storage requires GC mechanisms that minimize storage I/O while preserving direct access to JVM objects.
 
 % This dissertation proposes a storage-backed heap architecture that enables large result caches for data-intensive JVM applications while eliminating serialization/deserialization (S/D) overhead and expensive garbage collection (GC) scans over storage.
 % The architecture extends the JVM with two managed heaps: the collector's heap in DRAM (DH) and a second heap memory-mapped over an NVMe SSD (SH).
