@@ -43,7 +43,16 @@
 %\usepackage{venturis}
 
 %\usepackage{epsf}
-%\usepackage{hyperref}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\definecolor{thesisblue}{HTML}{0A3CB7}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=thesisblue,
+    citecolor=thesisblue,
+    urlcolor=thesisblue
+}
 %\usepackage{setspace}
 %\hypersetup{pdftex,colorlinks=false,allcolors=blue}
 %\usepackage{hypcap}
@@ -157,8 +166,14 @@ Engineering, Computer Science Department.}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \input{Dissertation_introduction.tex}
-%\input{Dissertation_context.tex}
-%\input{Dissertation_bgrw.tex}
+%
+\input{back.tex}
+%
+\input{teraheap.tex}
+%
+\input{chipper.tex}
+%
+\input{flexheap.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%% MAIN BODY  %%%%%%%%%%%
@@ -195,3 +210,5 @@ Engineering, Computer Science Department.}}
 \pagestyle{plain} \thispagestyle{empty}
 
 \end{document}
+
+

@@ -56,10 +56,46 @@ Although this is a general memory-management problem for data-intensive JVM appl
 \end{center}
 
 \section{Contributions}
-The specific contribution of this thesis are:
+
+The main contributions of this dissertation are as follows:
+
 \begin{enumerate}
+
+	\item \textbf{Storage-backed heaps for throughput-oriented applications.}
+	      We introduce a dual-heap architecture that preserves direct access to Java objects across DRAM and storage.
+	      Our design combines hint-based object placement, reference tracking, and region-level space reclamation to avoid expensive GC operations over storage.
+
+	\item \textbf{Storage-backed heaps for latency-sensitive applications.}
+	      We extend storage-backed heap management to low-pause garbage collectors by incorporating storage migration into incremental garbage collection.
+	      Our design introduces a storage-aware region-selection model, parallel object migration, and separate handling of large objects to account for the additional evacuation cost within the collector's pause-time constraints.
+
+	\item \textbf{I/O-aware dynamic heap resizing.}
+	      We introduce a runtime mechanism that dynamically partitions DRAM between the JVM heap and the OS page cache according to changing application demands.
+	      Our approach combines GC and I/O stall costs in a unified resizing policy, enabling memory allocation decisions that account for both computation and storage performance.
 
 \end{enumerate}
 
+\clearpage
 \section{Thesis Structure}
+
 The remainder of this thesis is organized as follows.
+
+\vspace{0.8\baselineskip}
+
+\begingroup \setlength{\parskip}{0.8\baselineskip}
+
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:back]{\textbf{Chapter~\ref*{chapter:back}}} provides background on JVM memory management, garbage collection, memory-mapped I/O, and storage-backed heaps.
+
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:teraheap]{\textbf{Chapter~\ref*{chapter:teraheap} TeraHeap}} introduces a storage-backed heap for throughput-oriented applications that extends the JVM heap beyond DRAM while reducing S/D overhead and expensive GC operations over storage.
+
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:chipper]{\textbf{Chapter~\ref*{chapter:chipper} Chipper}} extends storage-backed heaps to low-pause garbage collectors by integrating storage-aware object migration into incremental garbage collection to support latency-sensitive applications.
+
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:flexheap]{\textbf{Chapter~\ref*{chapter:flexheap} FlexHeap}} introduces an I/O-aware dynamic heap-resizing mechanism that adapts the division of DRAM between the JVM heap and the OS page cache to changing application memory requirements.
+
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:conclusion]{\textbf{Chapter~\ref*{chapter:conclusion}}} concludes the dissertation by summarizing its main contributions and discussing directions for future research.
+
+\par \endgroup
+
+
+
+
