@@ -3,11 +3,25 @@
 \setstretch{1.15} \addcontentsline{toc}{chapter}{Abstract}
 \chapter*{Abstract}
 
+Data-intensive applications on the Java Virtual Machine (JVM) use large caches to avoid recomputation and storage accesses.
+As datasets grow, these caches increase DRAM demand and keep objects reachable, raising garbage-collection (GC) costs.
+Moving cached objects off-heap can reduce pressure on the JVM heap but often adds serialization and deserialization (S/D) overhead.
+Extending the heap onto storage preserves direct access to Java objects, but GC scans and copies can trigger costly storage I/O.
+This thesis studies JVM memory-management mechanisms that expand available capacity while accounting for collector behavior and competition for DRAM.
 
-\paragraph{Keywords:}
+TeraHeap extends the JVM heap with a DRAM heap (DH) and a memory-mapped storage heap (SH).
+Framework hints guide object placement, while reference tracking and region-level reclamation reduce GC work over storage.
+Across Spark and Giraph workloads, TeraHeap improves performance over native configurations by up to 73\% and 28\%, respectively, and improves the Neo4j Graph Data Science library by up to 26\%.
+Chipper adapts storage-backed heaps to low-pause collection by integrating migration into G1's incremental, pause-bounded evacuation process and providing a separate path for large objects.
+In the evaluated workloads, Chipper reduces P99 latency by up to $161\times$ relative to DRAM-limited on-heap caches, $34\times$ relative to storage-backed off-heap caches, and $9\times$ relative to TeraHeap.
+FlexHeap addresses the complementary problem of dividing a fixed DRAM budget between the JVM heap and the operating-system page cache.
+It estimates CPU time lost to GC and I/O stalls and resizes the heap to reduce their combined cost; its evaluation reports average performance improvements of 30\% in Elasticsearch and 33\% in Spark over G1's resizing policy, and 50\% over Vertical G1.
 
+Together, these results show that storage-backed heaps and I/O-aware resizing address distinct constraints in data-intensive JVM applications.
+Storage-backed designs must account for collector policies, while heap sizing must account for both GC and I/O costs.
+
+\paragraph{Keywords:} JVM, garbage collection, storage-backed heaps, I/O, heap sizing.
 
 \begin{center}
-	Supervisor: Angelos Bilas \\ Professor\\ Computer Science Department\\ University of Crete
+Supervisor: Angelos Bilas \\ Professor\\ Computer Science Department\\ University of Crete
 \end{center}
-
