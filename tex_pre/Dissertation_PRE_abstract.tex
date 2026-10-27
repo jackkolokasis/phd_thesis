@@ -3,25 +3,40 @@
 \setstretch{1.15} \addcontentsline{toc}{chapter}{Abstract}
 \chapter*{Abstract}
 
-Data-intensive applications on the Java Virtual Machine (JVM) use large caches to avoid recomputation and storage accesses.
-As datasets grow, these caches increase DRAM demand and keep objects reachable, raising garbage-collection (GC) costs.
-Moving cached objects off-heap can reduce pressure on the JVM heap but often adds serialization and deserialization (S/D) overhead.
-Extending the heap onto storage preserves direct access to Java objects, but GC scans and copies can trigger costly storage I/O.
-This thesis studies JVM memory-management mechanisms that expand available capacity while accounting for collector behavior and competition for DRAM.
+Data-intensive applications running on the Java Virtual Machine (JVM) use large result caches to avoid repeated computation and storage accesses.
+As datasets grow, keeping cached objects on the JVM heap increases DRAM requirements and garbage collection (GC) overhead.
+Moving caches outside the heap can reduce GC overhead, and placing them on fast storage devices can provide additional capacity, but accessing these caches often requires costly serialization and deserialization (S/D).
+Backing a conventional JVM heap with storage avoids S/D, yet exposes storage-resident objects to GC scans and compaction that generate expensive I/O.
 
-TeraHeap extends the JVM heap with a DRAM heap (DH) and a memory-mapped storage heap (SH).
-Framework hints guide object placement, while reference tracking and region-level reclamation reduce GC work over storage.
-Across Spark and Giraph workloads, TeraHeap improves performance over native configurations by up to 73\% and 28\%, respectively, and improves the Neo4j Graph Data Science library by up to 26\%.
-Chipper adapts storage-backed heaps to low-pause collection by integrating migration into G1's incremental, pause-bounded evacuation process and providing a separate path for large objects.
-In the evaluated workloads, Chipper reduces P99 latency by up to $161\times$ relative to DRAM-limited on-heap caches, $34\times$ relative to storage-backed off-heap caches, and $9\times$ relative to TeraHeap.
-FlexHeap addresses the complementary problem of dividing a fixed DRAM budget between the JVM heap and the operating-system page cache.
-It estimates CPU time lost to GC and I/O stalls and resizes the heap to reduce their combined cost; its evaluation reports average performance improvements of 30\% in Elasticsearch and 33\% in Spark over G1's resizing policy, and 50\% over Vertical G1.
+This dissertation investigates how to extend result caches beyond DRAM using storage-backed heaps while preserving direct access to Java objects and reducing GC overhead.
+We address three complementary challenges: managing storage-resident objects without repeatedly scanning them, integrating storage migration into low-pause collection, and dividing DRAM between the JVM heap and the operating-system page cache.
 
-Together, these results show that storage-backed heaps and I/O-aware resizing address distinct constraints in data-intensive JVM applications.
-Storage-backed designs must account for collector policies, while heap sizing must account for both GC and I/O costs.
+First, we design and implement a heap architecture for throughput-oriented applications.
+It extends the JVM with a storage-backed heap using the Parallel Scavenge collector.
+The architecture combines a DRAM heap with a second heap memory-mapped over an NVMe SSD.
+Framework hints identify objects for migration, which retain their Java representation and remain directly accessible without S/D.
+Reference tracking and region-level reclamation allow the collector to reclaim storage space without scanning and compacting individual storage-resident objects.
+This design trades finer-grained reclamation for lower GC-related I/O.
+
+Next, we adapt storage-backed heaps to support latency-sensitive applications in low-pause garbage collectors.
+Incremental collection requires accounting for the cost of storage migration when deciding which regions to evacuate.
+Our design extends region selection to account for both the DRAM space released by migration and the different costs of evacuation to DRAM and storage.
+It integrates migration into parallel evacuation and provides a separate migration path for large objects.
+These mechanisms adapt storage-backed heap management to G1's pause-time goals.
+
+Finally, we introduce an I/O-aware mechanism for dynamically resizing the JVM heap.
+A larger heap can reduce GC overhead but leaves less DRAM for the page cache, potentially increasing I/O stalls.
+The mechanism estimates CPU time lost to GC and I/O stalls and adjusts the heap size to reduce their combined cost under a fixed DRAM budget.
+It addresses memory allocation in data-intensive JVM applications and can complement storage-backed heaps, whose DRAM heap competes with cached storage-heap pages for memory.
+
+We evaluate these mechanisms using analytics frameworks, graph-processing systems, search engines, and key-value stores.
+At the same DRAM capacity, our throughput-oriented design improves performance by up to 73\% in Spark and 28\% in Giraph over their native configurations.
+Our low-pause design reduces P99 latency by up to $161\times$ relative to DRAM-limited on-heap caches, $34\times$ relative to storage-backed off-heap caches, and $9\times$ relative to our throughput-oriented design in the evaluated workloads.
+Our heap-resizing mechanism improves performance over G1's heap-resizing policy by an average of 30\% in Elasticsearch and 33\% in Spark.
+The results demonstrate the benefits of adapting object placement, collection policies, and heap sizing to the costs of accessing data across DRAM and storage.
 
 \paragraph{Keywords:} JVM, garbage collection, storage-backed heaps, I/O, heap sizing.
 
 \begin{center}
-Supervisor: Angelos Bilas \\ Professor\\ Computer Science Department\\ University of Crete
+	Supervisor: Angelos Bilas \\ Professor\\ Computer Science Department\\ University of Crete
 \end{center}
