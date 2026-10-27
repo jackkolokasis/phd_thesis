@@ -1,0 +1,32 @@
+\section{Background}
+\label{sec:background}
+
+\chipperName{} targets low-pause collectors, such as G1~\cite{detlefs:g1}, Shenandoah~\cite{flood:shenandoah}, and ZGC~\cite{yang:zgc}.
+These collectors determine which objects are live using concurrent marking, a phase in which GC threads scan the object graph from the GC roots, such as thread stacks and global variables, while application threads (mutators) continue to execute.
+They limit the latency that GC adds to the application through three properties that a storage-backed heap must preserve: (1) they bound the work of each GC, (2) they evacuate live objects with multiple GC threads to keep GCs short, and (3) they handle large objects separately to avoid their evacuation cost.
+
+\paragraph{\textbf{Bounding GC work}}
+Low-pause collectors partition the heap into independently reclaimable units.
+G1 and Shenandoah use fixed-size regions, whereas ZGC uses small, medium, and large pages.
+We use the term \emph{region} for all such units throughout the paper.
+Instead of reclaiming the entire heap in one GC, the collector selects a subset of regions and evacuates their live objects into empty regions, which we call an \emph{incremental GC}.
+Each collector bounds the evacuation work of an incremental GC, and we call this bound the \emph{GC work budget}.
+G1 derives the budget from a pause-time target, whereas Shenandoah and ZGC must complete evacuation before allocation exhausts the free heap space.
+To use the budget effectively, the collector selects the regions that reclaim the most heap space per unit of evacuation work, using the live bytes that concurrent marking computes for each region.
+
+\paragraph{\textbf{Parallel object evacuation}}
+In low-pause collectors, multiple GC threads evacuate live objects in parallel to reduce the cost of GC: a GC thread obtains space in a destination region and copies the object into that space.
+To avoid synchronizing on every evacuated object, collectors partition the allocation state of destination regions among GC threads.
+G1 and Shenandoah use per-thread allocation buffers, and ZGC uses per-thread destination pages.
+The collectors differ in how they evacuate objects.
+G1 evacuates the selected regions during an STW pause, whereas Shenandoah and ZGC evacuate concurrently with mutators and use short STW pauses for coordination.
+After a GC thread copies an object, the collector's forwarding mechanism makes references to the object resolve to its forwarding destination.
+G1 and Shenandoah record the forwarding destination in the mark word of the evacuated object, whereas ZGC records it in a per-page forwarding table.
+
+\paragraph{\textbf{Handling large objects}}
+Low-pause collectors do not evacuate objects above a collector-specific size threshold during incremental GCs, and we refer to these objects as \emph{large objects}.
+G1 classifies an object that occupies at least half a region as humongous, Shenandoah allocates an object that exceeds its regular allocation threshold in dedicated humongous regions, and ZGC allocates such an object in a large page.
+Evacuating a large object is an indivisible unit of evacuation work that may exceed the GC work budget.
+A large object therefore remains in its region while it is live, and the collector reclaims the region once the object is dead.
+When incremental GCs cannot maintain sufficient free heap space, each collector falls back to a collector-specific mechanism: G1 performs an STW Full GC, Shenandoah degenerates to an STW Full GC, and ZGC stalls allocating mutators until concurrent evacuation frees heap space.
+The Full GC of G1 and the degenerated GC of Shenandoah evacuate objects without a GC work budget and can therefore evacuate large objects, whereas the allocation stall of ZGC does not evacuate them.

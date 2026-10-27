@@ -1,0 +1,93 @@
+\setstretch{1.15}
+
+\chapter{Related Work}
+\label{chapter:related}
+
+This chapter reviews work related to the dissertation's three contributions: storage-backed managed heaps, garbage-collection and data-placement techniques, and dynamic coordination of JVM heap capacity with the operating-system page cache.
+The first two contributions extend managed-object capacity onto storage while addressing collector costs under different collection goals.
+The third contribution studies how the JVM heap and file cache should share DRAM, and can complement storage-backed heaps without itself implementing one.
+
+\section{Extending Managed Heaps Beyond DRAM}
+
+Several systems increase the memory available to managed applications by using secondary storage, non-volatile memory (NVM), or remote memory.
+Their designs differ in whether objects retain their managed representation, how the collector discovers and reclaims them, and whether the target is local block-addressable storage or another memory tier.
+
+\subsection{Local Storage-Backed Heaps}
+
+LOOM extends object memory across DRAM and secondary storage~\cite{kaehler:loom}.
+Other systems, including Abdelrahman and Pande's design, Melt, and LeakSurvivor, move cold or stale reachable objects to disk and restore them when accessed~\cite{abdelrahman:memorygc,bond:melt,leaksurvivor}.
+These designs target objects with infrequent accesses and use mechanisms that differ from a memory-mapped managed heap.
+Melt and LeakSurvivor maintain object-location metadata in the JVM, while LeakSurvivor also defers reclamation on disk until space is needed.
+TMO monitors DRAM pressure and moves cold pages to slower tiers, including NVMe SSDs, below the JVM's object model~\cite{weiner:tmo}.
+
+TeraHeap and Chipper instead expose a storage-backed heap in which objects retain their Java representations and are accessed through memory mapping.
+TeraHeap integrates this heap with the throughput-oriented Parallel Scavenge collector and avoids scanning storage-resident objects during ordinary collection~\cite{teraheap,kolokasis:teracache}.
+Chipper addresses a different constraint: it integrates storage migration with G1's incremental, pause-bounded collection policy, accounting for migration work when selecting regions for evacuation.
+These designs share the goal of reducing serialization and storage-resident GC work, but their collector mechanisms and latency objectives differ.
+
+Table~\ref{tab:related} summarizes selected systems that extend managed heaps beyond local DRAM according to developer effort, whether GC scans the secondary tier, and device type.
+The table reflects the taxonomy used to compare TeraHeap with prior heap-scaling systems; it is not a complete comparison of low-pause collector designs.
+
+\input{teraheap/related_tab}
+
+\subsection{Byte-Addressable NVM and Remote Memory}
+
+Work on byte-addressable NVM includes systems that place objects according to access or write hotness to reduce writes or improve performance~\cite{akram:ration,akram:crystal,gcmove,thingc}.
+NVM-friendly-GC optimizes G1 for an NVM-resident heap and uses DRAM as a cache for collector operations~\cite{Xu:gc_evaluation}.
+Panthera and JPDHeap place managed objects across DRAM and NVM, but allow the collector to scan NVM-resident objects~\cite{wang:Panthera,jpd_heap}.
+These systems target byte-addressable media, whose access granularity and capacity differ from local NVMe SSDs.
+
+Remote-memory systems address the cost of tracing and collecting objects across a network.
+MemLiner improves far-memory locality by aligning collector access order with mutator access patterns~\cite{wang:memliner}.
+Semeru separates execution and memory responsibilities across JVM instances, while Mako offloads object scanning and evacuation to memory servers~\cite{wang:semeru,ma:mako}.
+DGC offloads concurrent marking to a remote garbage-collection service over RDMA~\cite{hongtao:dgc}.
+SmartSweep explores reclamation of remote or tiered managed heaps by returning garbage-rich regions to local memory for collection~\cite{kolokasis:smartsweep}.
+SmartSweep is an exploratory direction in this dissertation rather than a fourth principal contribution.
+
+\section{Reducing Managed-Memory and Data-Movement Costs}
+
+\subsection{Reducing Garbage-Collection Cost}
+
+Some systems reduce GC cost while keeping application data in DRAM.
+Facade and Gerenuk transform application code to use off-heap representations, reducing the amount of object data traced by the JVM~\cite{nguyen:facade,navasca:gerenuk}.
+Broom groups objects with similar lifetimes into regions, while DSA uses programmer annotations to allocate selected data structures separately and improve tracing locality and parallelism~\cite{gog:broom,cohen:dsa}.
+Yak allocates objects by programmer-defined epochs, and Deca uses lifetime information to manage Spark objects~\cite{khanh:yak,lu:deca}.
+BridgeGC uses framework annotations to avoid repeatedly tracing and copying long-lived data until the framework signals its release~\cite{wang:bridgegc}.
+NG2C and allocation-site profiling identify long-lived objects for pretenuring~\cite{bruno:n2gc,pretenuring,Blackburn:2001:PJ}.
+These approaches reduce tracing, copying, or allocation overhead, but do not provide the capacity of a storage-backed heap.
+
+\subsection{Reducing Serialization and Data-Movement Cost}
+
+Serialization libraries such as Thrift, Kryo, and Protocol Buffers provide general-purpose formats and implementations for converting object graphs to and from byte streams~\cite{thrift,kryo,protocol-buffers}.
+Other systems reduce conversion or transfer costs by moving managed object graphs directly between JVMs, as in Skyway, or by bypassing conventional serialization for RDMA or inter-JVM transfers, as in Naos and ZCOT~\cite{nguyen:skyway,taranov:naos,wu:zero_change}.
+SSDStreamer uses a lightweight serializer and a stream-oriented I/O path for SSD-backed caching~\cite{ssdstreamer}.
+Specialized hardware and techniques that reduce copies across buffers further accelerate serialization and data transfer~\cite{jang:arch,pourhabibi:optimus,matei:champions,ibanez:zerializer}.
+These systems address S/D or copy costs, while TeraHeap and Chipper retain managed object representations in the storage-backed heap and address the collector costs that arise from expanding the heap onto storage.
+
+\section{Heap Sizing and DRAM Coordination}
+
+\subsection{JVM Heap-Resizing Policies}
+
+Prior heap-sizing work uses heuristics, analytical models, profiling, or feedback control to adapt heap capacity to application behavior.
+Heuristic policies have been proposed for Boehm-Demers-Weiser GC and JVMs, and other work studies heap resizing under paging, allocation stalls, or changing application requirements~\cite{brecht:nogc,boehm:gc,zhang:pamm,grz:isla_vista,bruno:resize,cook:auto,simao:adaptability,zgc:heap_resize}.
+Model-based policies estimate heap needs or paging costs from application and operating-system measurements~\cite{yang:real_mem,sun:multi_space_heap,tay:page_fault,vengerov:gc_analysis,singer:economics,kirisame:membalancer}.
+Control-theoretic approaches use feedback to maintain a target GC objective or coordinate memory across database structures~\cite{white:pid,storm:db2}.
+Cross-runtime systems allocate memory among multiple JVMs or managed processes to reduce paging or improve aggregate throughput~\cite{alonso:advisor,hertz:waste_not,cameron:forseti,wang:elasticMem}.
+
+These policies address heap capacity, GC overhead, paging, or shared-memory allocation, but generally do not distinguish DRAM used by the JVM heap from DRAM used by the operating system to cache storage-backed data.
+That distinction matters when heap and I/O demands change together.
+
+\subsection{Coordinating the Heap with the I/O Cache}
+
+Application-specific cache systems allow developers to align caching with application access patterns~\cite{lee:p2cache}.
+Symbiosis coordinates user-space block caches with the operating-system I/O cache, using offline profiling to guide its decisions~\cite{dai:symbiosis}.
+FlexHeap instead resizes the JVM heap using feedback about both GC cost and I/O stalls, dynamically reallocating DRAM between the heap and the I/O cache.
+It can therefore complement TeraHeap and Chipper, where the OS page cache affects access to storage-backed heap objects, but it is not itself a storage-backed collector.
+
+\section{Positioning of This Dissertation}
+
+The related work exposes three distinct system problems.
+TeraHeap increases managed-heap capacity for throughput-oriented applications while limiting collection work over storage.
+Chipper extends storage-backed heaps to G1 and accounts for migration cost within incremental, pause-bounded collection.
+FlexHeap addresses a complementary resource-allocation problem by balancing JVM heap capacity against the OS page cache according to GC and I/O costs.
+Together, these contributions study storage capacity, collector policy, and DRAM allocation as related but separate design dimensions.

@@ -1,0 +1,19 @@
+\section{Conclusions}
+
+Managed big data analytics frameworks demand increasing the heap size as
+datasets grow. In managed language environments, such as JVM, high-capacity
+heaps incur excessive \teraheapGC overhead. Thus, frameworks avoid using large heaps and
+resort to expensive off-heap \teraheapSD when managing large datasets. This work
+proposes and evaluates \teraheapName{}, which extends the JVM to use a transparent,
+high-capacity heap over a fast storage device alongside the regular heap,
+reducing memory pressure. \teraheapName{} reduces \teraheapGC overhead and eliminates \teraheapSD cost
+by fencing the collector from scanning the second heap and providing direct
+access to objects on the second heap. We find that \teraheapName{} improves Spark
+and Giraph performance by up to 73\% and 28\%, respectively. In addition to
+frameworks that explicitly transfer objects off heap, \teraheapName{} can also benefit
+frameworks that operate solely in memory. Consequently, we showcase how
+utilizing \teraheapName{} can improve the performance of the Neo4j-GDS library by up to
+26\%. Overall, our proposed approach of managing large memory in the JVM as
+customized, separate heaps is a promising direction for incorporating large
+address spaces in managed environments and reducing memory pressure without
+incurring high \teraheapGC overhead.

@@ -1,0 +1,215 @@
+\section{Experimental Methodology}
+\label{sec:method}
+
+\setlength\heavyrulewidth{1pt}
+\begin{table}[t]
+  \centering
+  \caption{NVMe and NVM server properties.}
+  \resizebox{0.7\columnwidth}{!}{%
+    \begin{tabular}{llclc}
+      \multicolumn{1}{c}{\textbf{ID}} & \multicolumn{1}{c}{\textbf{CPU}}  & \multicolumn{1}{c}{\textbf{\begin{tabular}[c]{@{}c@{}}DRAM\end{tabular}}} & \multicolumn{1}{c}{\textbf{Storage}}                                                & \multicolumn{1}{c}{\textbf{Kernel}} \\
+        \toprule
+        \begin{tabular}[c]{@{}l@{}}NVMe \\ Server\end{tabular}  & \begin{tabular}[c]{@{}l@{}}Intel Xeon E5-2630 \\ 32 Cores @ 2.4 GHz\end{tabular} & \SI{256}{GB} & \begin{tabular}[c]{@{}l@{}}\SI{2}{TB} Samsung PM983 \\ PCI Express NVMe SSD\end{tabular} & 4.14 \\ \hline
+        \begin{tabular}[c]{@{}l@{}}SATA \\ Server\end{tabular}  & \begin{tabular}[c]{@{}l@{}}Intel Xeon E5-2630 \\ 32 Cores @ 2.4 GHz\end{tabular} & \SI{256}{GB} & \begin{tabular}[c]{@{}l@{}}$2 \times$ \SI{256}{GB} Samsung \\ SATA SSD 850\end{tabular} & 4.14 \\ \hline
+        \begin{tabular}[c]{@{}l@{}}NVM \\ Server\end{tabular} & \begin{tabular}[c]{@{}l@{}}Intel Xeon Platinum \\ 24 cores @ 2.4 GHz\end{tabular} & \SI{192}{GB} & \begin{tabular}[c]{@{}l@{}}\SI{3}{TB} Intel Optane DC \\ Persistent Memory\end{tabular}  & 3.10 \\ \bottomrule
+
+    \end{tabular}%
+    }
+    \label{tab:server}
+\end{table}
+
+We answer the following questions in our evaluation:
+\begin{enumerate}
+  \item How does \teraheapName{} perform compared to native JVM and
+    state-of-the-art Panthera with NVMe SSDs and NVM?
+  \item What are the space requirements of H2 in the storage device
+    and for its metadata in DRAM?
+  \item What is the overhead of tracking references and moving
+    objects to H2 during \teraheapGC?
+  \item How does \teraheapName{} scale with an increasing number of mutator
+    threads and dataset size?
+  \item How does the performance of \teraheapName{} vary based on (1) the
+    distribution of DRAM between H1 and the page cache for H2, and (2) the
+    type of storage device used?
+  \item How does \teraheapName{} perform compared to newer garbage
+    collectors?
+\end{enumerate}
+
+\paragraph{\textbf{Server infrastructure}}
+We evaluate \teraheapName{} both with block-addressable NVMe SSDs,
+SATA SSDs, and byte-addressable NVM as the backing device
+for H2. Table~\ref{tab:server} shows the properties of each server.
+Our NVM server operates in two modes:
+%
+(1) \emph{App Direct mode} uses \SI{192}{GB} DRAM as main memory and
+\SI{2}{TB} NVM as persistent storage device.
+%
+(2) \emph{Mixed mode} partitions NVM to use \SI{1}{TB} in memory mode
+and \SI{2}{TB} in App Direct mode. DRAM (\SI{192}{GB}) acts as a cache
+for \SI{1}{TB} NVM (memory mode) controlled by the CPU's memory
+controller. In App Direct mode, the system mounts NVM on an ext4-DAX
+file system to establish direct mappings to the device.
+
+\paragraph{\textbf{Baseline and \teraheapName{} configurations}}
+We use Spark v3.3.0 with the Kryo serializer~\cite{kryo}, a
+state-of-the-art highly optimized \teraheapSD library for Java that Spark
+recommends.
+%
+We run Spark with OpenJDK17. We run Giraph v1.2 with Hadoop v2.4
+and OpenJDK8, as it does not support more recent versions of OpenJDK.
+%
+We use an executor with eight mutator threads for
+both Spark and Giraph.
+%
+Also, we run GDS using Neo4j v.5.15 and GDS v.2.7 with OpenJDK17. For GDS, we
+use four mutator threads, the maximum number of threads that the GDS community
+edition supports~\cite{gds}.
+%
+Our experiments use two garbage collectors in different configurations: PS in
+OpenJDK8 and OpenJDK17 and Garbage First (G1)~\cite{zhao:g1} in OpenJDK17. For
+PS, we use 16 \teraheapGC threads.
+G1 uses two parameters:
+%
+(1) the number of parallel \teraheapGC threads, which we set to eight (max
+value) and
+%
+(2) the ratio of concurrent to mutator threads, which we set to two as
+the recommended configuration, is one-fourth of the parallel \teraheapGC
+threads~\cite{g1:manual}.
+%
+In our experiments, we utilize eight cores while disabling the remaining cores
+of the servers. For the performance scaling experiments
+(Section~\S\ref{sec:scaling}), we use 4, 8, and 16 cores to match the number
+of mutator threads.
+
+\begin{table}[t]
+\centering
+\caption{Summary of baselines.}
+\resizebox{0.7\columnwidth}{!}{%
+\begin{tabular}{l|cccc}
+\multicolumn{1}{c|}{\textbf{Baseline}} &
+  \textbf{DRAM} &
+  \textbf{\begin{tabular}[c]{@{}c@{}}NVMe SSD\end{tabular}} &
+  \textbf{\begin{tabular}[c]{@{}c@{}}NVM\\ (App Direct mode)\end{tabular}} &
+  \textbf{\begin{tabular}[c]{@{}c@{}}NVM \\ (Memory mode)\end{tabular}} \\
+    \toprule
+    Spark-SD   & Heap       & Off-heap & -        & -    \\
+    Spark-SD   & Heap       & -        & Off-heap & -    \\
+    Spark-MO   & -          & -        & -        & Heap \\
+    Giraph-OOC & Heap       & Off-Heap & -        & -    \\
+    GDS-Heap   & -          & Heap     & -        & -    \\
+    GDS-OldGen & Young gen. & Old gen. & -        & -    \\
+\bottomrule
+\end{tabular}%
+}
+\label{tab:baselines}
+\end{table}
+
+Table~\ref{tab:baselines} summarizes the Spark, Giraph, and GDS configurations
+we use as baselines.
+%
+The two Spark-SD configurations place executor memory (heap) in DRAM
+and cache RDDs in the on-heap cache, up to 50\% of the total heap
+size. Any remaining RDDs are serialized in the off-heap cache, over
+either NVMe SSD (first line of Table~\ref{tab:baselines}) or NVM in
+App Direct mode (second line of Table~\ref{tab:baselines}).
+%
+Spark-MO places executor memory (heap) over NVM in memory mode,
+caching all RDDs on-heap.
+%
+Giraph-OOC places the heap in DRAM and offloads vertices, edges, and
+messages off-heap to the NVMe SSD.
+%
+GDS-Heap allocates the managed heap on an NVMe SSD using
+memory mapped I/O by setting the \emph{-XX:AllocateHeapAt} runtime
+flag.
+%
+GDS-OldGen allocates only the old generation of the managed heap on an
+NVMe SSD using memory mapping (setting the \emph{-XX:AllocateOldGenAt}
+runtime flag) and the young generation in DRAM.
+
+We configure \teraheapName{} to allocate H1 on DRAM and H2 over a file in NVMe
+SSD or NVM via memory-mapped I/O (\teraheapMMIO). The file in both NVMe and
+NVM servers is mapped to the JVM virtual address space where the
+application can access the data with regular load/store
+instructions~\cite{apapag:fmap}. Our experiments show that machine
+learning (ML) workloads in Spark access the individual elements of
+cached RDD partitions sequentially. For this reason, we configure
+\teraheapName{} for Spark ML workloads to use huge pages (\SI{2}{MB}) in H2 to
+reduce the frequency of page faults. Instead of the native
+\emph{mmap}, we use HugeMap~\cite{jmal:hugemap} a custom, open source,
+\teraheapMMIO path that enables huge pages for file-backed mappings.
+
+\input{teraheap/config_tab}
+
+In Spark-SD, to capture the effect of large datasets and limited DRAM
+capacity~\cite{chen:hybrid}, we use a small heap size that caches a
+limited number of RDDs on-heap and the rest off-heap (Spark-SD column
+in Table~\ref{tab:spark_conf}). In Spark-MO we find and use the
+minimum heap size that fits all the cached data on-heap (Spark-MO
+column in Table~\ref{tab:spark_conf}). In Giraph-OOC, we
+experimentally find the minimum heap size for each workload
+(Giraph-OOC Heap column in Table~\ref{tab:giraph_conf}). \teraheapName{} uses
+the same amount of DRAM as Spark-SD and Giraph-OOC but divides it
+between H1 (DR1) and system (DR2). The DRAM devoted to system use
+(DR2) includes the Spark and Giraph drivers and the kernel page cache
+for I/O.
+
+In GDS-OldGen, by default, the JVM sets the maximum value of the young
+generation to be 80\% of the available DRAM to balance the tradeoff
+between \teraheapGC efficiency and heap size. However, setting the maximum
+size of the young generation to 80\% can lead to longer pause times
+during garbage collection. Thus, we investigate different values for
+the maximum size of the young generation and provide the best
+configuration for our experiments. Specifically, for PR and WCC, the
+young generation is 30\% of DRAM, while for CDLP is 20\% of the DRAM.
+
+For the division of DRAM, we explore H1 sizes between 50\% and 90\% of
+DRAM capacity, and we report results with a configuration hand-tuned
+for each workload. Table~\ref{tab:spark_conf} and
+Table~\ref{tab:giraph_conf} show the H1 size of \teraheapName{} in each
+workload, in Spark and Giraph, respectively. DR2 is always \SI{16}{GB}
+for Spark, whereas Table~\ref{tab:giraph_conf} shows the DR2 size for
+Giraph-OOC and \teraheapName{} in each Giraph workload. We limit the available
+DRAM capacity in our experiments with the NVMe server using
+\emph{cgroups}. Table~\ref{tab:spark_conf} and
+Table~\ref{tab:giraph_conf} show the total DRAM capacity in the NVMe
+server for each workload.
+
+\paragraph{\textbf{Workloads and datasets}}
+We use ten memory-intensive workloads from the Spark-Bench
+suite~\cite{Li:SparkBench}. For Giraph and GDS, we use workloads from the LDBC
+Graphalytics suite~\cite{iosup:ldbc}. SparkBench provides a data generator which
+we use to generate input datasets for our Spark workloads. For Giraph and GDS
+workloads, we use the datagen-9\_0-fb dataset~\cite{iosup:ldbc} and
+datagen-9\_4-fb dataset~\cite{iosup:ldbc}, respectively.
+Table~\ref{tab:spark_conf}, Table~\ref{tab:giraph_conf}, and
+Table~\ref{tab:neo4j} show the dataset size for each workload.
+
+\paragraph{\textbf{Execution time breakdowns and \teraheapSD overhead}}
+Our experiments are long-running, and to navigate the design space in a
+practical timeframe, we repeat each experiment five times, reporting the average
+end-to-end execution time. We observe low run-to-run variation (up to 2\%), and
+five iterations suffice. We break execution time into four components:
+\emph{other} time, \teraheapSD + I/O time, minor \teraheapGC time, and major \teraheapGC time. Other
+time includes mutator threads time. In \teraheapName{}, the other time potentially
+includes I/O wait due to page faults when accessing the H2 backing device. In
+Spark-SD (see Table~\ref{tab:baselines}), \teraheapSD time includes \teraheapSD time both for
+shuffle and caching. In \teraheapName{} and Spark-MO (see Table~\ref{tab:baselines}),
+all \teraheapSD time is due to shuffling. The JVM reports the time spent in minor and
+major \teraheapGC.
+
+To estimate \teraheapSD overhead, which occurs in mutator threads, we use a
+sampling profiler~\cite{async-profiler} to collect execution samples
+from the mutator threads. The samples include the stack trace, similar
+to the flame graph~\cite{flamegraphs} approach. Then we group the
+samples for all the paths that originate from the top-level
+\texttt{writeObject()} and \texttt{readObject()} methods of the
+KryoSerializationStream and KryoDeserializationStream classes. These
+samples include both \teraheapSD for the compute cache and the shuffle
+network path of Spark. We then use the ratio of \teraheapSD samples to the
+total application thread samples as an estimate of the time spent in
+\teraheapSD, and we plot this separately in our execution time breakdowns. We
+run the profiler with a \SI{10}{ms} sampling interval, verifying that
+this does not create significant overhead (less than 2\% of total
+execution time).

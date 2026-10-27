@@ -1,0 +1,37 @@
+% \begin{table}[t]
+% 	\caption{Read and write I/O traffic for Elasticsearch workloads under G1-50
+% 		and \flexheapName{} (FH) in small DRAM budget configurations.}
+% 	\label{tab:es_traffic}
+% 	\resizebox{0.5\columnwidth}{!}{%
+% 		\begin{tabular}{llll|lll}
+% 			              & \multicolumn{3}{c|}{\textbf{Read Traffic}} & \multicolumn{3}{c}{\textbf{Write Traffic}}                                                                                                                                                   \\
+% 			              & \multicolumn{1}{c}{\textbf{G1-50}}         & \multicolumn{1}{c}{\textbf{FH}}            & \multicolumn{1}{c|}{\textbf{Diff}} & \multicolumn{1}{c}{\textbf{G1-50}} & \multicolumn{1}{c}{\textbf{FH}}   & \multicolumn{1}{c}{\textbf{Diff}} \\
+% 			              & \multicolumn{1}{c}{\textbf{(GB)}}          & \multicolumn{1}{c}{\textbf{(GB)}}          & \multicolumn{1}{c|}{\textbf{(\%)}} & \multicolumn{1}{c}{\textbf{(GB)}}  & \multicolumn{1}{c}{\textbf{(GB)}} & \multicolumn{1}{c}{\textbf{(\%)}} \\ \hline
+% 			Wikipedia     & 1677                                       & 1444                                       & \textbf{-14\%}                     & 637                                & 605                               & \textbf{-5\%}                     \\
+% 			Cohere Vector & 29862                                      & 23636                                      & \textbf{-21\%}                     & 331                                & 334                               & +0.9\%                            \\
+% 			Dense Vector  & 189                                        & 134                                        & \textbf{-29\%}                     & 79                                 & 85                                & +7\%                              \\
+% 			OpenAi        & 716                                        & 638                                        & \textbf{-10\%}                     & 467                                & 432                               & \textbf{-7\%}                     \\ \hline
+% 		\end{tabular}
+% 	}
+% \end{table}
+
+\begin{table}[t]
+	\caption{Read and write I/O traffic for Elasticsearch workloads under G1-50 (maximum heap cap
+		of 50\% of DRAM), VG1, and \flexheapName{} (FH) in small DRAM budget configurations.}
+	\label{tab:es_traffic}
+	\resizebox{\columnwidth}{!}{%
+		\begin{tabular}{l|ccccc|ccccc}
+			\toprule
+			              & \multicolumn{5}{c|}{\textbf{Read Traffic}} & \multicolumn{5}{c}{\textbf{Write Traffic}}                                                                                                                                                          \\
+			\cmidrule(lr){2-6} \cmidrule(lr){7-11}
+			              & \textbf{G1-50}                             & \textbf{VG1}                               & \textbf{FH}   & \textbf{Diff}        & \textbf{Diff}      & \textbf{G1-50} & \textbf{VG1}  & \textbf{FH}   & \textbf{Diff}        & \textbf{Diff}      \\
+			              & \textbf{(GB)}                              & \textbf{(GB)}                              & \textbf{(GB)} & \textbf{FH vs G1-50} & \textbf{FH vs VG1} & \textbf{(GB)}  & \textbf{(GB)} & \textbf{(GB)} & \textbf{FH vs G1-50} & \textbf{FH vs VG1} \\
+			\midrule
+			Wikipedia     & 1677                                       & 3442                                       & 1444          & \textbf{-14\%}       & \textbf{-57\%}     & 637            & 587           & 605           & \textbf{-5\%}        & +3\%               \\
+			Cohere Vector & 29862                                      & 27100                                      & 23636         & \textbf{-21\%}       & \textbf{-13\%}     & 331            & 336           & 334           & +0.9\%               & \textbf{-0.6\%}    \\
+			Dense Vector  & 189                                        & 468                                        & 134           & \textbf{-29\%}       & \textbf{-71\%}     & 79             & 79            & 85            & +7\%                 & +7\%               \\
+			OpenAI        & 716                                        & 700                                        & 638           & \textbf{-10\%}       & \textbf{-8\%}      & 467            & 435           & 432           & \textbf{-7\%}        & \textbf{-0.7\%}    \\
+			\bottomrule
+		\end{tabular}
+	}
+\end{table}

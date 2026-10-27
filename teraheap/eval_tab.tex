@@ -1,0 +1,36 @@
+\setlength{\unitlength}{1em}
+
+\begin{table}[t]
+  \centering
+  \caption{Categorizing H2 objects into size ranges, such
+  as B, KB, and MB, showing the total number of objects for each
+  category as a percentage over the total allocated objects in H2.}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrrrrrrr|rrrrr}
+  \toprule
+            & \multicolumn{10}{c|}{\textbf{Spark}}                                             & \multicolumn{5}{c}{\textbf{Giraph}}   \\
+ &
+  \multicolumn{1}{c}{\textbf{PR}} &
+  \multicolumn{1}{c}{\textbf{CC}} &
+  \multicolumn{1}{c}{\textbf{SSSP}} &
+  \multicolumn{1}{c}{\textbf{SVD}} &
+  \multicolumn{1}{c}{\textbf{TR}} &
+  \multicolumn{1}{c}{\textbf{LR}} &
+  \multicolumn{1}{c}{\textbf{LgR}} &
+  \multicolumn{1}{c}{\textbf{SVM}} &
+  \multicolumn{1}{c}{\textbf{BC}} &
+  \multicolumn{1}{c|}{\textbf{RL}} &
+  \multicolumn{1}{c}{\textbf{PR}} &
+  \multicolumn{1}{c}{\textbf{CDLP}} &
+  \multicolumn{1}{c}{\textbf{WCC}} &
+  \multicolumn{1}{c}{\textbf{BFS}} &
+  \multicolumn{1}{c}{\textbf{SSSP}} \\
+  \toprule
+  \textbf{B (\%)}  & 87.51 & 50.36 & 99.33 & 100.00 & 80.33 & 60.20 & 93.80 & 60.61 & 100.00 & 100.00 & 83.44 & 81.41 & 82.92 & 82.33 & 73.32 \\
+  \textbf{KB (\%)} & 10.95 & 48.40 & 0.66  & 0.00   & 19.54 & 0.00  & 0.00  & 0.00  & 0.00   & 0.00   & 16.56 & 18.59 & 17.08 & 17.67 & 26.68 \\
+  \textbf{MB (\%)} & 1.54  & 1.24  & 0.01  & 0.00   & 0.13  & 39.80 & 6.20  & 39.39 & 0.00   & 0.00   & 0.00  & 0.00  & 0.00  & 0.00  & 0.00  \\
+  \bottomrule
+\end{tabular}%
+}
+\label{tab:size}
+\end{table}

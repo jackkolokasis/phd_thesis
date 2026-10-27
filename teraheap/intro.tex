@@ -1,0 +1,194 @@
+\section{Introduction}
+
+Managed big data frameworks, such as Spark~\cite{zaharia:spark} and
+Giraph~\cite{giraph}, are designed to analyze huge volumes of data.
+Typically, such processing requires iterative computations over data
+until a convergence condition is satisfied. Each iteration produces
+new transformations over data, generating a massive volume of objects
+spanning long computations.
+
+Hosting a large volume of objects on the managed heap increases memory
+pressure, resulting in frequent garbage collection (GC) cycles with
+low yield. Each \teraheapGC cycle reclaims little space because
+%
+(1) the cumulative volume of allocated objects is several times larger
+than the size of available heap~\cite{Xu:Neutrino} and
+%
+(2) objects in big data frameworks exhibit long
+lifetimes~\cite{lifetime-ferreira,wang:Panthera,Xu:gc_evaluation}.
+%
+Although production garbage collectors efficiently manage short-lived
+objects, they do not perform well under high memory pressure
+introduced by long-lived objects~\cite{mitchel:bloat}.
+
+The common practice for coping with rapidly growing datasets and high
+\teraheapGC cost is to move objects outside the managed heap (off-heap) over a
+fast storage device (e.g., NVMe SSD). However, frameworks cannot
+compute directly over off-heap objects, and thus, they (re)allocate
+these objects on the managed heap to process them. Although some
+systems support off-heap computation over byte arrays with primitive
+types~\cite{arrow}, they do not offer support for computation over
+arbitrary objects, resulting in application specific solutions, such
+as Spark SQL~\cite{spark_tungsten}.
+
+Moving managed objects off-heap has two main limitations. First, it
+introduces high serialization/deserialization (\teraheapSD) overhead for
+applications that use complex data
+structures~\cite{ibanez:zerializer,matei:champions,nguyen:skyway}.
+Recent efforts~\cite{jang:arch,li:hods} reduce \teraheapSD but demand custom
+hardware extensions and do not mitigate \teraheapGC overhead. Second, moving a
+large volume of off-heap objects to the managed heap for processing
+increases the \teraheapGC cost. Although TMO~\cite{weiner:tmo} transparently
+swaps cold application memory to NVMe SSDs and provides direct access
+to device resident objects (no \teraheapSD), it cannot avoid slow \teraheapGC scans
+over the device. Our evaluation shows that \teraheapGC and \teraheapSD constitute up
+to 87\% of the execution time in big data applications.
+
+In this article, we propose \teraheapName{}, a system that eliminates \teraheapSD and
+\teraheapGC overheads for a large portion of the data in managed big data
+analytics frameworks. \teraheapName{} extends the Java virtual machine (JVM)
+to use a second, high-capacity heap (H2) over a fast storage device
+that coexists alongside the regular heap (H1). It eliminates \teraheapSD by
+providing direct access to objects in H2 and reduces \teraheapGC by avoiding
+costly \teraheapGC scans over objects in H2. Frameworks use \teraheapName{} through
+its hint-based interface without modifications to the applications
+that run on top of them. \teraheapName{} addresses three main challenges, as
+follows.
+
+\paragraph{\textbf{Identifying candidate objects for H2}}
+%
+Big data frameworks move specific objects outside the managed heap on
+off-heap storage. For instance, Spark moves off-heap intermediate
+results; Giraph moves the vertices and edges of the graph and the
+messages sent between vertices. Frameworks organize such data
+(partitions) as groups of objects with a single-entry root
+reference~\cite{mahmud:survey}. \teraheapName{} provides a hint-based
+interface that uses \emph{key-object
+opportunism}~\cite{hayes:key_opport} and enables frameworks to mark
+objects and indicate when to move them to H2. During \teraheapGC, \teraheapName{}
+dynamically identifies the transitive closure of marked objects and move them to H2.
+
+\paragraph{\textbf{Eliminating \teraheapGC cost for H2}}
+%
+\teraheapName{} presents a unified heap with the aggregate capacity of H1 and
+H2, where \emph{scans over H2 during \teraheapGC are eliminated,} to avoid
+expensive device I/O.
+%
+To achieve this, \teraheapName{} organizes H2 into regions with similar-lifetime objects
+and deals differently with liveness analysis and space reclamation.
+%
+We exploit the observation that analytics frameworks~\cite{zaharia:spark,
+giraph} organize groups of objects with similar lifetimes, such as cached
+partitions in Spark, in data structures with a single-entry root reference.
+%
+For liveness analysis, \teraheapName{} identifies live H2 regions by tracking
+forward (H1 to H2) and cross-region (into H2) references during \teraheapGC.
+To identify live objects in H1, \teraheapName{} explicitly tracks backward
+references (H2 to H1) and fences \teraheapGC scans in H2. \teraheapName{} tracks
+backward references using a card table optimized for storage-backed
+heaps, minimizing I/O traffic to the underlying device during \teraheapGC.
+%
+For space reclamation, the collector reclaims H1 objects as usual. For
+H2 regions, unlike existing region-based
+allocators~\cite{gog:broom,khanh:yak} \teraheapName{} resolves the
+space-performance trade-off for reclaiming space differently. Existing
+allocators reclaim region space eagerly by moving live objects to
+another region, which would generate excessive I/O for storage-backed
+regions. Instead, \teraheapName{} uses the high capacity of NVMe SSDs to
+reclaim entire regions lazily, avoiding slow object compaction on the
+storage device.
+
+\paragraph{\textbf{Applying \teraheapName{}}}
+%
+Managed big data analytics frameworks exhibit significant diversity in
+handling dataset sizes exceeding memory limits.
+%
+One line of frameworks, such as Spark and Giraph, reduce memory
+pressure by temporarily offloading excess data off-heap over a storage
+device. Spark users explicitly store immutable cached data on the
+device, while Giraph transparently (without user hints) offloads
+mutable objects to the device. We modify the two frameworks to use
+\teraheapName{}. The use of \teraheapName{} is different in each framework: Spark uses
+\teraheapName{} to store immutable intermediate results, whereas Giraph uses
+\teraheapName{} to store mutable objects, such as edges and messages.
+%
+Another set of frameworks, such as the Neo4j Graph Data Science (GDS) library is
+built on the assumption that all data fits in DRAM and does not move data
+off-heap. To process large datasets that exceed DRAM capacity in GDS, we show
+how it can exploit \teraheapName{} to offload objects to the storage device without
+refactoring its source code.
+%Managed big data analytics frameworks exhibit significant diversity
+%concerning the objects they move off-heap. We investigate how Spark
+%and Giraph, two widely used frameworks, resolve the trade-off between
+%GC cost due to large heaps and the overhead of off-heap accesses.
+%Spark users explicitly store immutable cached data on the device,
+%while Giraph transparently (without user hints) offloads mutable
+%objects to the device. We modify the two frameworks to use \teraheapName{}.
+%The use of \teraheapName{} is different in each framework: Spark uses \teraheapName{}
+%to store immutable intermediate results, whereas Giraph uses \teraheapName{}
+%to store mutable objects, such as edges and messages.
+
+We implement \teraheapName{} and its mechanisms in OpenJDK8 and
+OpenJDK17, extending the Parallel Scavenge garbage collector. We also
+extend the interpreter and the C1 and C2 Just-in-Time (JIT) compilers
+to support object updates in H2 during application execution.
+%
+Our evaluation shows that \teraheapName{} improves performance by up to 73\%, 28\%, and
+26\% compared to native Spark, Giraph, and GDS, respectively.
+%
+\teraheapName{}
+provides similar or better performance by consuming up to $4.6\times$
+and $1.2\times$ less DRAM capacity than native Spark and Giraph,
+respectively. Also, it outperforms Panthera~\cite{wang:Panthera}, a
+garbage collector specialized for hybrid memories by up to 69\%.
+
+Overall, our work makes the following contributions:
+
+\begin{itemize}
+	\item
+        We introduce a dual heap approach to reduce \teraheapSD and memory
+        pressure in big data frameworks by adding a second,
+        high-capacity, managed heap over a fast storage device.
+	\item
+        We propose a hint-based interface based on key-object
+        opportunism that enables frameworks to mark candidate objects
+        in a coarse-grain manner and select when to move them to the
+        second heap.
+	\item
+        We show the applicability of \teraheapName{} as: (1) a large, on-heap,
+        compute cache in Spark to store intermediate results, (2) a
+        high-capacity heap in Giraph to store messages and edges,
+        and (3) a high-capacity heap in GDS to offload objects
+        during graph processing.
+\end{itemize}
+
+This article builds upon the \teraheapName{} system~\cite{teraheap} by presenting
+several extensions and improvements.
+%
+First, we rigorously analyze the trade-off between a large managed
+heap to store long-lived objects versus moving these objects off-heap.
+%
+Second, we extend the Parallel Scavenge (PS) garbage collector in
+OpenJDK17 to work with \teraheapName{} and provide an in-depth evaluation of
+its performance, showing that \teraheapName{} still provides better
+performance in newer JVM versions. The key challenge in supporting OpenJDK17
+includes multithreaded compactions during major \teraheapGC{} in the H1.
+%
+Third, we illustrate the applicability of \teraheapName{} in enabling in-memory
+frameworks that do not move objects off-heap to handle larger problem sizes
+(beyond DRAM) without needing \textit{ad-hoc} solutions. For this purpose, we
+show how \teraheapName{} applies to and improves the performance of the GDS library
+compared to mapping the managed heap or part of the managed heap over a storage
+device.
+%
+Fourth, we investigate how dividing a fixed amount of DRAM between H1
+and (OS) page cache for H2 affects \teraheapName{}'s performance. Our goal is to
+understand better the scenarios in which the size of H1 or the size of
+the page cache has a more significant impact on performance.
+%
+Fifth, we examine the sensitivity of \teraheapName{} to different storage devices
+technologies (predominant practice in the data center) by allocating H2 over
+SATA SSD and NVMe devices.
+%
+Finally, we introduce a taxonomy of prior art and discuss the critical
+limitations of the state of the art in depth.

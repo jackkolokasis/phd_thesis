@@ -1,0 +1,82 @@
+\section{Background}
+
+% \begin{figure*}[t]
+% 	\subfloat[G1]{\includegraphics[width=0.24\linewidth]{flexheap/fig/back/g1_policy.pdf}}
+% 	\hspace{0.5pt}
+% 	\subfloat[VG1]{\includegraphics[width=0.35\linewidth]{flexheap/fig/back/vg1_policy.pdf}}
+% 	\subfloat[FlexHeap]{\includegraphics[width=0.35\linewidth]{flexheap/fig/back/fh_policy.pdf}}
+% 	\caption{Heap resizing policies of (a) G1, (b) VG1, and (c) \flexheapName{}.}
+% 	\label{fig:back}
+% \end{figure*}
+
+This section provides background on the Garbage-First (G1) garbage collector, Vertical G1 (VG1) resizing mechanism, and the buffered I/O in Linux kernel.
+
+\paragraph{\textbf{G1}}
+It is the default garbage collector of OpenJDK designed to balance high application throughput with predictable pause times.
+G1 divides the heap into equally sized regions and follows a generational model with two generations: young and old.
+The young generation consists of eden and survivor regions.
+Mutator threads allocate new objects in eden regions, and each young GC cycle reclaims eden space by evacuating live objects to survivor regions.
+Objects that survive multiple young GCs are promoted to the old generation.
+
+G1 performs both STW and concurrent GCs.
+It begins with repeated young GCs (STW) that target only the young generation and pause all mutator threads.
+As the old generation fills and its occupancy crosses a configurable threshold, G1 triggers a concurrent marking GC to identify live objects across the heap without stopping mutators.
+After concurrent marking completes, G1 performs one or more mixed GCs (STW) that reclaim memory from both young and selected old regions with a high fraction of garbage.
+Finally, full GCs (STW) are rare and serve as a fallback mechanism, pausing all mutators to reclaim the entire heap when incremental GCs cannot keep up with allocation demand.
+
+G1 also relies on mutator write barriers to track cross-region references.
+When a mutator updates an object reference, G1 marks the corresponding entry in a card table, a byte array in which each byte represents a \SI{512}{B} segment of the heap.
+A marked card indicates that the corresponding segment may contain updated references that must later be examined by the garbage collector.
+Concurrent refinement threads run alongside mutator threads and process these dirty cards while the application executes, identifying cross-region references and updating the remembered sets of the corresponding target regions.
+By doing so, they move much of remembered-set maintenance out of the STW pause, thereby reducing GC pause time.
+During young or mixed GC, when G1 collects a region, it uses that region’s remembered set to locate incoming cross-region references and update them to point to the objects’ new locations, without scanning the entire heap.
+
+% \paragraph{\textbf{G1 resizing policy.}}
+% At the end of each young, mixed, and full GC cycle, G1 performs heap resizing
+% at the granularity of heap regions: shrinking involves uncommitting regions and
+% returning them to the operating system, while growing reserves additional
+% regions for future allocations. In the latest OpenJDK (version 26), heap
+% resizing decisions follow different criteria depending on the type of
+% collection (Figure~\ref{fig:back}(a)). For young and mixed GCs, resizing is
+% based on the ratio of time spent in GC versus application execution, known as
+% the GC time ratio (\texttt{-XX:GCTimeRatio}). If recent pause times are
+% consistently low (e.g., the last eight consecutive GCs or the average of the
+% last ten fall below a predefined threshold), G1 interprets this as low memory
+% pressure and shrinks the heap. Conversely, if GC overhead is high (e.g., the
+% last four GCs or the average of the last ten exceed the threshold), G1 grows
+% the heap to improve application throughput. By contrast, for full GCs, resizing
+% is based on occupancy. After a full collection, G1 evaluates the fraction of
+% free space relative to runtime thresholds \texttt{-XX:MinHeapFreeRatio,
+% 	-XX:MaxHeapFreeRatio} thresholds. If the free space falls below the minimum
+% ratio, the heap is grown to provide more allocation headroom; if it exceeds the
+% maximum ratio, the heap is shrunk by uncommitting regions. Thus, while young
+% and mixed GCs pursue throughput goals, full GC resizing is driven by heap
+% occupancy goal.
+%
+% In addition to resizing the heap, G1 also determines the size of the eden space
+% (Figure~\ref{fig:back} (a)). This decision is key to balancing throughput and
+% latency, as eden size directly impacts the number of allocations before the
+% next GC. G1 uses a predictive model to estimate the pause time that would
+% result from collecting a given number of eden regions, drawing on historical
+% data such as evacuation cost per region, object copy time, and remembered-set
+% processing overhead. If the estimated pause time exceeds the user-defined goal
+% (\texttt{-XX:MaxGCPauseMillis}), G1 reduces the number of eden regions
+% accordingly. This pause-time-driven sizing ensures that young GCs stay within
+% latency targets while maximizing the interval between collections.
+
+\paragraph{\textbf{VG1}}
+It is a time-driven, occupancy-based mechanism that preserves G1's default heap resizing heuristics while returning memory to the OS more aggressively.
+It triggers a concurrent mark cycle if no collection occurs within a user-configured interval (\texttt{-XX:G1PeriodicGCInterval}).
+In G1, each concurrent marking cycle concludes with a remark phase, a short STW pause in which G1 finalizes the marking process to ensure that all live objects are correctly identified before mixed GCs.
+At the end of the remark phase, VG1 makes heap resizing decisions based on heap occupancy.
+If the gap between committed memory and the memory occupied by live objects exceeds a threshold, VG1 returns memory to the OS.
+
+\paragraph{\textbf{Buffered I/O}}
+Buffered I/O is the default file-I/O mode in most operating systems.
+In Linux, it uses the kernel's I/O cache, which stores file data in memory in fixed-size pages (typically \SI{4}{KB}), to serve reads and temporarily buffer writes before they are flushed to storage.
+This allows recently accessed file data to be served from DRAM instead of the storage device.
+Buffered I/O also allows the OS to prefetch file pages into the I/O cache in anticipation of future accesses.
+As a result, applications can issue file accesses at arbitrary offsets and sizes without managing low-level device requirements directly.
+In contrast, direct I/O bypasses the kernel's I/O cache and transfers data directly between the application and the storage device.
+Direct I/O typically requires applications to satisfy device-specific alignment and I/O-size constraints.
+Consequently, applications using direct I/O do not benefit from additional I/O cache capacity.

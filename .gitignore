@@ -20,6 +20,15 @@
 *.synctex.gz
 *.synctex(busy)
 *.xdv
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.ist
+*.loa
 
 # Generated thesis PDF (the template PDF is a reference and stays tracked)
 Dissertation_MAIN.pdf

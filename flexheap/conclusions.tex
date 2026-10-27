@@ -1,0 +1,12 @@
+\section{Conclusions}
+
+Popular search engines and analytic frameworks running on JVM must carefully balance memory between the JVM heap and the I/O cache to achieve high performance.
+Existing heap resizing mechanisms focus solely on reducing GC overhead, neglecting the cost of I/O stalls.
+%
+In this paper, we propose \flexheapName{}, a heap resizing mechanism for G1 that dynamically partitions memory between the heap and the I/O cache.
+Between GC intervals, \flexheapName{} estimates the CPU time lost to GC and to I/O stalls, and repartitions DRAM to reduce their combined cost.
+It makes frequent decisions at G1 collection boundaries, relies on a history-based model to project future GC and I/O stall costs, and adapts its resizing step proportional to the magnitude of changes in that combined cost.
+%
+Our evaluation shows that \flexheapName{} improves throughput in Elasticsearch and Spark by an average 30\% and 33\%, respectively.
+Also, \flexheapName{} outperforms VG1 by on average 50\%.
+These results demonstrate that I/O-aware heap resizing is important for improving performance in modern JVM-based search and analytic applications.

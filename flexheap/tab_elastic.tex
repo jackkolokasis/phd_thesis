@@ -1,0 +1,29 @@
+\begin{table}[t]
+	\centering
+	\caption{Configurations of Elasticsearch workloads for each DRAM budget.
+		G1-50 (G1 default heap resizing policy with maximum heap capped at 50\% of
+		DRAM), VG1 (Vertical G1), and FH (\flexheapName{}) indicate the heap size allocated
+		to each setup under the given DRAM budget.}
+	\label{tab:es}
+	\resizebox{\columnwidth}{!}{%
+		\begin{tabular}{lrr cccc cccc}
+			\toprule
+			\multirow{2}{*}{\textbf{Dataset}} & \multirow{2}{*}{\textbf{Index (GB)}}         & \multirow{2}{*}{\textbf{\#Documents}}
+			                                  & \multicolumn{4}{c}{\textbf{Configuration A}}
+			                                  & \multicolumn{4}{c}{\textbf{Configuration B}}                                                                                                       \\
+			\cmidrule(lr){4-7} \cmidrule(lr){8-11}
+			                                  &                                              &
+			                                  & \textbf{DRAM}                                & \textbf{G1-50}                        & \textbf{VG1}  & \textbf{FH}
+			                                  & \textbf{DRAM}                                & \textbf{G1-50}                        & \textbf{VG1}  & \textbf{FH}                                 \\
+			                                  &                                              &
+			                                  & \textbf{(GB)}                                & \textbf{(GB)}                         & \textbf{(GB)} & \textbf{(GB)}
+			                                  & \textbf{(GB)}                                & \textbf{(GB)}                         & \textbf{(GB)} & \textbf{(GB)}                               \\
+			\midrule
+			Wikipedia                         & 68                                           & 22,986,169                            & 8             & 4             & 7  & 7  & 12 & 6  & 11 & 11 \\
+			Cohere Vector                     & 500                                          & 30,000,000                            & 25            & 13            & 22 & 22 & 50 & 25 & 45 & 45 \\
+			Dense Vector                      & 19.5                                         & 10,000,000                            & 4             & 2             & 3  & 3  & 6  & 3  & 5  & 5  \\
+			OpenAI Vector                     & 109.1                                        & 5,361,922                             & 4             & 2             & 3  & 3  & 7  & 3  & 6  & 6  \\
+			\bottomrule
+		\end{tabular}
+	}
+\end{table}

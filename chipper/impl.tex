@@ -1,0 +1,121 @@
+\section{\chipperName{} Implementation in G1}
+\label{chipper:sec:impl}
+
+We implement \chipperName{} in OpenJDK~17 by extending G1, the default garbage collector in OpenJDK.
+Four G1 execution paths are relevant to our implementation: young GCs, concurrent marking cycles, mixed GCs, and Full GCs.
+Young and mixed GCs evacuate objects during STW pauses.
+Young GCs evacuate young regions, while mixed GCs additionally evacuate selected old regions.
+A concurrent marking cycle scans objects concurrently with mutators and computes old generation liveness for subsequent mixed GCs.
+In G1, young and mixed GCs are the incremental GCs defined in \S\ref{sec:distribute}, humongous objects are the large objects defined in \S\ref{sec:nonmovable}, and Full GC is G1's mechanism for relieving memory pressure.
+
+We next describe how \chipperName{} integrates SH references, SH migration, and SH metadata maintenance in each path.
+
+\paragraph{\textbf{Young GC}}
+During a young GC, \chipperName{} must keep SH outside G1's evacuation scan while making backward references visible as roots so that referenced young DH objects remain live.
+When object scanning encounters a DH-to-SH reference, \chipperName{} fences the collector from following the reference and scanning the referenced SH object.
+GC threads scan \emph{dirty} and \emph{young} SH cards and process backward references through G1's root-evacuation path.
+If a referenced DH object is evacuated, G1's existing evacuation path updates the SH reference to the object's forwarding destination.
+After scanning an SH card, the GC thread reclassifies the SH card according to the remaining DH targets.
+
+\paragraph{\textbf{Concurrent marking cycle}}
+Concurrent marking must expose old generation objects reachable from SH, determine SH-region liveness, and compute the per-region SH-candidate volume required for subsequent Mixed GC region selection.
+
+Old generation objects reachable only from SH would otherwise appear dead to concurrent marking.
+\chipperName{} therefore exposes the referenced old generation objects as marking roots before concurrent marking begins.
+A concurrent marking cycle starts with a concurrent-start young GC.
+During this STW phase, \chipperName{} scans \emph{dirty}, \emph{young}, and \emph{old} SH cards.
+For backward references that point to old generation objects, \chipperName{} marks the referenced objects in G1's marking bitmap and pushes the referenced objects onto G1's marking stack.
+The referenced old generation objects then participate in subsequent concurrent marking.
+Backward references to young objects require no additional marking-root handling because G1 already scans the survivor regions of the concurrent-start young GC as root regions.
+
+The SH-region liveness bits and per-region $L_{SH}(r)$ counters describe a single concurrent marking cycle and must therefore be reset at the beginning of each cycle.
+During the concurrent-start pause, before processing roots, \chipperName{} clears the liveness bit of every allocated SH region and resets the per-DH-region $L_{SH}(r)$ counters.
+While G1 scans the object graph, \chipperName{} identifies SH candidates and accumulates $L_{SH}(r)$ as described in \S\ref{sec:distribute}.
+G1 already maintains the total live bytes of each old region, including SH candidates, so \chipperName{} derives $L_{DH}(r)$ by subtracting $L_{SH}(r)$ from G1's live-byte count.
+
+SH-region liveness must also remain consistent with G1's snapshot-at-the-beginning (SATB) marking semantics.
+When concurrent marking encounters a DH-to-SH reference, \chipperName{} marks the referenced SH region live, propagates liveness through the region's dependency list, and fences the collector from following the reference and scanning the referenced SH object.
+\chipperName{} also processes DH-to-SH references retained in G1's SATB buffers so that SH regions reachable at the beginning of the concurrent marking cycle remain live.
+At remark, \chipperName{} processes SH cards dirtied during concurrent marking, records inter-region dependencies discovered on those cards, and propagates SH-region liveness through the corresponding dependency lists before finalizing SH-region liveness.
+SH regions whose liveness bits remain clear can then be reclaimed.
+The resulting $L_{SH}(r)$ and $L_{DH}(r)$ values are available for subsequent Mixed GC region selection.
+
+\paragraph{\textbf{Collection-set prediction}}
+\chipperName{} must incorporate the SH-aware reclaimed-DH-space and evacuation-work estimates from \S\ref{sec:distribute} into G1's existing old-region selection mechanism without changing the remainder of G1's collection-set policy.
+
+At the end of concurrent marking, when G1 builds the candidate old-region list for subsequent mixed GCs, \chipperName{} computes $E(r)$ for each candidate old region using the $R_{DH}(r)$ and $W_{\mathit{evac}}(r)$ estimates from \S\ref{sec:distribute}.
+G1's existing collection-set chooser orders candidate regions using $E(r)$.
+When constructing a Mixed GC collection set, G1 predicts the evacuation work of each candidate region as
+%
+\[
+	C_{DH} \cdot L_{DH}(r) +
+	C_{SH} \cdot L_{SH}(r)
+\]
+%
+and admits old regions while the predicted pause remains within G1's pause-time target.
+The remaining prediction terms and collection-set admission rules remain unchanged.
+
+G1's existing per-byte evacuation-cost estimate provides $C_{DH}$.
+\chipperName{} maintains $C_{SH}$ from mixed GCs that perform SH evacuation.
+After each such mixed GC, \chipperName{} records the measured per-byte SH evacuation cost and uses the average of the ten most recent samples for subsequent predictions.
+Before observing the first SH evacuation, \chipperName{} initializes $C_{SH}$ to $C_{DH}$.
+
+\paragraph{\textbf{Mixed GC}}
+During a mixed GC, \chipperName{} exposes backward references as evacuation roots, migrates selected SH candidates, and records the resulting SH reference metadata.
+
+Before evacuation, \chipperName{} scans all non-clean SH cards and processes backward references through G1's root-evacuation path because old SH cards may point to old regions in the collection set.
+As G1 evacuates objects from the collection set, \chipperName{} acquires the allocation lock associated with the SH candidate's label-to-region mapping, allocates an SH destination from the current SH region, and copies the SH candidate directly to the reserved SH destination through mmio.
+
+G1 stores an object's forwarding destination in the source object's mark word.
+\chipperName{} uses the same mechanism to store the SH address as the forwarding destination.
+If multiple GC threads evacuate the same SH candidate, a GC thread whose reserved SH destination is not selected fills the unused allocation range with a filler object.
+If SH allocation fails, \chipperName{} evacuates the SH candidate within DH and preserves the object's SH-candidate state for a later GC.
+
+While scanning an object evacuated to SH, \chipperName{} maintains the SH scan boundary and SH reference metadata.
+For a DH-to-SH reference, \chipperName{} fences the collector from following the reference and scanning the referenced SH object.
+\chipperName{} records inter-region references in the dependency list of the destination SH region while holding the corresponding dependency lock.
+Backward references mark the corresponding SH cards.
+G1 then continues evacuation through the existing evacuation path.
+
+\paragraph{\textbf{Full GC}}
+\chipperName{} uses G1's Full GC to migrate humongous SH candidates whose SH migration has been deferred across incremental GCs, as well as regular SH candidates that mixed GCs have not yet migrated.
+Integrating SH migration into Full GC requires \chipperName{} to identify live SH candidates, assign exactly one SH destination to each candidate, redirect references to the assigned SH destinations, and complete the SH copies before reusing the original DH space.
+
+\underline{Identify live candidates and SH regions (marking).}
+Full-GC marking must determine both SH-region liveness and which deferred humongous SH candidates remain live.
+At the beginning of Full-GC marking, \chipperName{} clears the liveness bit of every allocated SH region.
+When marking encounters a DH-to-SH reference, \chipperName{} marks the referenced SH region live and propagates liveness through the region's dependency list.
+Full-GC marking also identifies live humongous SH candidates that remain in DH.
+Also, \chipperName{} must preserve the object metadata required to migrate live humongous SH candidates later in Full GC.
+G1 stores Full-GC forwarding information in the mark word but does not normally move humongous objects, so G1 does not preserve the mark-word state of humongous objects for movement.
+For each live humongous SH candidate, \chipperName{} therefore preserves the mark-word state that must survive SH migration before G1 reuses the mark word for forwarding information.
+\chipperName{} also ensures that the first DH region occupied by the humongous SH candidate, which contains the object header, participates in subsequent Full-GC processing.
+After Full-GC marking, any allocated SH region whose liveness bit remains clear can be reclaimed.
+
+\underline{Prepare for compaction.}
+Each live SH candidate requires exactly one SH destination before G1 adjusts object references.
+G1's preparation-for-compaction phase normally assigns new DH destinations to objects that will move.
+For an SH candidate, \chipperName{} instead allocates an SH destination and records the SH address as the forwarding destination.
+\chipperName{} also ensures that a DH region containing an SH candidate participates in compaction even when G1 would otherwise exclude the region based on live-data occupancy.
+However, humongous SH candidates require an additional handling phase because a single humongous object may span DH regions processed by different GC threads.
+To assign exactly one SH destination, only the GC thread processing the first DH region of the humongous SH candidate performs the allocation.
+GC threads processing continuation regions skip the humongous SH candidate.
+The GC thread processing the first DH region records the humongous SH candidate on a local stack for later copying.
+
+\underline{Adjust object references.}
+After assigning SH destinations, G1's reference-adjustment phase redirects references to the recorded forwarding destinations.
+References to SH candidates therefore resolve to the assigned SH destinations.
+Mutators remain stopped during Full GC, and no GC thread reads object contents from an SH destination during reference adjustment.
+The complete SH copy therefore does not need to be available while G1 updates references.
+\chipperName{} also maintains SH reference metadata created by the new object locations.
+\chipperName{} records dependencies for newly created inter-region references and marks SH cards for newly created backward references.
+\chipperName{} also scans existing non-clean SH cards and updates backward references whose DH targets receive new forwarding destinations.
+
+\underline{Heap compaction.}
+After reference adjustment, \chipperName{} must materialize the complete objects at the assigned SH destinations before reclaiming the original DH space and resuming mutators.
+References have already been adjusted and mutators remain stopped, so \chipperName{} can stage SH copies in intermediate DRAM buffers and write the buffered objects to SH asynchronously, unlike incremental evacuation (\S\ref{sec:evacuate}).
+Regular SH candidates are copied as part of G1's regular compaction traversal.
+G1 compacts each region toward lower addresses in address order, so no object overwrites a regular SH candidate before \chipperName{} copies the SH candidate to the assigned SH destination.
+However, humongous SH candidates follow a different copying path because G1's regular compaction traversal does not visit humongous objects.
+Each GC thread therefore drains the local stack populated during preparation for compaction and copies the recorded humongous SH candidates to the assigned SH destinations.
+\chipperName{} restores the preserved object metadata in the SH copies and waits for all outstanding SH writes to complete before reclaiming the corresponding DH space and resuming mutators.

@@ -1,0 +1,158 @@
+\renewcommand{\arraystretch}{1.1}
+\begin{table}[t]
+	\centering
+  \caption{Configuration for each workload on NVMe and NVM servers for
+  Spark-SD, Spark-MO, and \teraheapName{}.}
+	\resizebox{0.8\columnwidth}{!}{%
+		\begin{tabular}{p{0.01cm}l|ccccc}
+			                                                                 &
+			\multicolumn{1}{c|}{}
+      & \textbf{\begin{tabular}[c]{@{}c@{}}NVMe Server\end{tabular}}        &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Dataset\end{tabular}} &
+          \textbf{\begin{tabular}[c]{@{}c@{}}Spark-SD\end{tabular}}
+            &
+            \textbf{\begin{tabular}[c]{@{}c@{}}Spark-MO\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}TeraHeap\end{tabular}}      \\
+			                                                                 & \multicolumn{1}{r|}{\textbf{GB}}                                       &
+			\multicolumn{1}{l}{\textbf{DRAM}}                                & \multicolumn{1}{c}{\textbf{Size}}                                      & \multicolumn{1}{c}{\textbf{Heap}}                             & \multicolumn{1}{c}{\textbf{Heap}}                          & \multicolumn{1}{c}{\textbf{H1}}                                                  \\
+			\toprule
+      \multirow{5}{*}{\rotatebox[origin=c]{90}{\textbf{GraphX}}}
+      & PageRank (PR)
+      & 80
+      & 32
+      & 64
+      & 1024
+      & 64
+      \\
+
+      &\begin{tabular}[c]{@{}l@{}} Connected Components (CC)\end{tabular}
+      & 84
+      & 32
+      & 68
+      & 1024
+      & 68
+      \\
+
+      & Shortest Path (SSSP)
+      & 58
+      & 32
+      & 42
+      & 650
+      & 42 \\
+
+      &
+                                                                       SVDPlusPlus (SVD)
+                                                                       &
+                                                                       40
+                                                                       &
+                                                                       2
+                                                                       &
+                                                                       24
+                                                                       &
+                                                                       500
+                                                                       &
+                                                                       24
+                                                                       \\
+
+                                                                       &
+                                                                       Triangle
+                                                                       Counts
+                                                                       (TR)
+                                                                       &
+                                                                       80
+                                                                       &
+                                                                       2
+                                                                       &
+                                                                       64
+                                                                       &
+                                                                       64
+                                                                       &
+                                                                       64
+                                                                       \\
+                                                                       \bottomrule
+                                                                       \multirow{4}{*}[-2.5pt]{\rotatebox[origin=c]{90}{\textbf{MLlib}}}
+                                                                       &
+                                                                       Linear
+                                                                       Regression
+                                                                       (LR)
+                                                                       &
+                                                                       70
+                                                                       &
+                                                                       256
+                                                                       &
+                                                                       54
+                                                                       &
+                                                                       1084
+                                                                       &
+                                                                       54
+                                                                       \\
+
+			                                                                 & Logistic Regression (LgR)                                                    & 70                                                          & 256                                                            & 54                                                          & 1084              & 54 \\
+
+                                                                       & \begin{tabular}[c]{@{}l@{}}Support Vector Machine (SVM)\end{tabular}
+                                                                       & 48
+                                                                       & 256
+                                                                       & 32
+                                                                       & 620
+                                                                       & 32 \\
+
+			                                                                 & \begin{tabular}[c]{@{}l@{}}Naive Bayes Classifier (BC)\end{tabular}
+                                                                         & 98
+                                                                         & 21
+                                                                         & 82
+                                                                         & 82
+                                                                         & 82 \\
+			\bottomrule
+			\rotatebox[origin=c]{90}{\textbf{SQL}}
+      & RDD-RL
+      & 63
+      & 16
+      & 47
+      & 96
+      & 47 \\
+			\bottomrule
+		\end{tabular}%
+	}
+  \label{tab:spark_conf}
+\end{table}
+
+\begin{table}[t]
+	\centering
+  \caption{Giraph-OOC and \teraheapName{} configurations for each workload on
+  our NVMe server.}
+	\resizebox{0.7\columnwidth}{!}{%
+		\begin{tabular}{l|cccccc}
+			\multicolumn{1}{c|}{}            &
+      \textbf{\begin{tabular}[c]{@{}c@{}}NVMe Server\end{tabular}} &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Dataset\end{tabular}} &
+          \multicolumn{2}{c}{\textbf{Giraph-OOC}} & \multicolumn{2}{c}{\textbf{TeraHeap}}                                  \\
+			\multicolumn{1}{r|}{\textbf{GB}} & \textbf{DRAM} & \textbf{Size}                                               & \textbf{Heap}                          & \textbf{DR2}                          & \textbf{H1} & \textbf{DR2} \\
+			\toprule
+			PageRank (PR)                    & 85                                                             & 31                                                          & 70                                      & 15                                  & 50              & 35        \\
+      \begin{tabular}[c]{@{}l@{}}Community Detection \\ Label Propagation (CDLP) \end{tabular}          & 85                                                             & 31                                                          & 70                                      & 15                                  & 60              & 25        \\
+        \begin{tabular}[c]{@{}l@{}}Weakly Connected \\ Components (WCC) \end{tabular}         & 85                                                             & 31                                                          & 70                                      & 15                                  & 60              & 25        \\
+			Breadth-first Search (BFS)       & 65                                                             & 31                                                          & 48                                      & 17                                  & 35              & 30        \\
+			Shortest Path (SSSP)             & 90                                                             & 31                                                          & 75                                      & 15                                  & 50              & 40        \\
+			\bottomrule
+		\end{tabular}%
+	}
+  \label{tab:giraph_conf}
+\end{table}
+
+\begin{table}[t]
+  \centering
+\caption{Parameters we use with each GDS-Neo4j configuration in our experiments.}
+  \resizebox{0.8\columnwidth}{!}{%
+    \begin{tabular}{l|ccccccc}
+      & \textbf{NVMe Server} & \textbf{Dataset} & \textbf{GDS-Heap} &
+      \multicolumn{2}{c}{\textbf{GDS-OldGen}} & \multicolumn{2}{c}{\textbf{TeraHeap}} \\
+      \multicolumn{1}{r|}{\textbf{GB}} & \textbf{DRAM}        & \textbf{Size}    & \textbf{DR2}  & \textbf{YoungGen}   & \textbf{DR2}  & \textbf{H1}       & \textbf{DR2}      \\
+      \toprule
+      PageRank (PR)                                                                          & 14 & 70 & 14 & 4 & 10 & 11 & 3 \\
+      \begin{tabular}[c]{@{}l@{}}Community Detection\\ Label Propagation (CDLP)\end{tabular} & 14 & 70 & 14 & 4 & 10 & 11 & 3 \\
+        \begin{tabular}[c]{@{}l@{}}Weakly Connected\\ Components (WCC)\end{tabular}            & 30 & 70 & 30 & 6 & 24 & 22 & 8 \\
+			\bottomrule
+
+    \end{tabular}%
+    }
+    \label{tab:neo4j}
+\end{table}

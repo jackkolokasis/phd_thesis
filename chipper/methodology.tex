@@ -1,0 +1,112 @@
+\section{Experimental Methodology}
+\label{chipper:sec:methodology}
+
+Our evaluation answers four questions:
+
+\begin{enumerate}
+	\item How does \chipperName{} improve application tail latency compared with a DRAM-limited on-heap cache, a storage-backed off-heap cache, and TeraHeap under the same DRAM budget (\S\ref{sec:eval-latency})?
+
+	\item How does \chipperName{}'s SH-aware region-efficiency model affect application tail latency (\S\ref{sec:eval-selection})?
+
+	\item How does SH allocation-lock granularity affect \chipperName{}'s Mixed GC performance and application tail latency (\S\ref{sec:eval-scalability})?
+
+	\item What is the performance cost of migrating large objects during Mixed GCs compared with deferring their migration to Full GC (\S\ref{sec:eval-large})?
+
+\end{enumerate}
+
+\paragraph{\textbf{Experimental platform}}
+We use a dual-socket server with two Intel Xeon E5-2630~v3 CPUs at \SI{2.4}{GHz}, with 16 physical cores in total and hyper-threading enabled, and \SI{256}{GB} of DDR4 DRAM.
+The server runs Ubuntu 24.04 with Linux kernel 6.8.
+It has three PCIe NVMe SSDs: one \SI{4}{TB} Lexar NM790 and two \SI{2}{TB} Samsung PM983 devices configured as RAID~0.
+To reduce variability, we disable swap, set the CPU frequency governor to \emph{performance}, and use the default kernel settings for page-cache write-back.
+
+\begin{table*}[t]
+	\small
+	\caption{Baselines compared with \chipperName{} and the applications used to evaluate each baseline.
+		\textbf{N/A} indicates that an application does not provide a storage-backed off-heap cache.}
+	\label{tab:configs}
+	\begin{tabular}{@{}lccc cccc@{}}
+		\toprule
+		                   &               &                   &                            & \multicolumn{4}{c}{\textbf{Application}}                                                     \\
+		\cmidrule(l){5-8}
+		\textbf{Baselines} & \textbf{DRAM} & \textbf{NVMe SSD} & \textbf{Garbage collector} & \textbf{OpenSearch}                      & \textbf{Lucene} & \textbf{Spark} & \textbf{HBase} \\
+		\midrule
+		On-heap            & Heap          & --                & G1                         & \checkmark                               & \checkmark      & \checkmark     & \checkmark     \\
+		Off-heap           & Heap          & Off-heap          & G1                         & \checkmark                               & N/A             & \checkmark     & \checkmark     \\
+		TeraHeap           & DH            & SH                & Parallel Scavenge          & \checkmark                               & \checkmark      & \checkmark     & \checkmark     \\
+		\bottomrule
+	\end{tabular}
+\end{table*}
+
+\paragraph{\textbf{Baselines}}
+We compare \chipperName{} against three baselines that differ in where cached data resides and how the cache is managed: on-heap, off-heap, and TeraHeap~\cite{teraheap}.
+The on-heap baseline stores cached data in the managed heap and is therefore limited by the available DRAM.
+The off-heap baseline extends cache capacity to storage, but accesses to the storage-backed portion of the cache incur S/D costs.
+The storage-backed portion of the off-heap cache and the SH of both TeraHeap and \chipperName{} reside on the RAID~0 device.
+TeraHeap and \chipperName{} label the root object of the same cache entry in each application, keeping the set of storage-backed objects consistent across the two systems.
+\chipperName{} and all baselines run on OpenJDK~17.
+\chipperName{} and the baselines that use G1 use G1's default settings, including a pause-time target of \SI{200}{ms} and thirteen GC threads, as determined by the number of CPU cores available to the application.
+TeraHeap uses Parallel Scavenge with the same thirteen GC threads.
+Table~\ref{tab:configs} summarizes the baselines.
+
+\begin{table}[t]
+	\small
+	\setlength{\tabcolsep}{5pt}
+	\caption{Workloads, datasets, and memory configuration.
+		Heap is the managed heap of the on-heap and off-heap baselines, and DH is the DRAM heap of TeraHeap and \chipperName{}.}
+	\label{tab:workloads}
+	\begin{tabular}{@{}llccc@{}}
+		\toprule
+		\textbf{Application}   & \textbf{Workload} & \textbf{Dataset}    & \textbf{Heap / DH} & \textbf{DRAM}       \\
+		                       &                   & \textbf{(GB)}       & \textbf{(GB)}      & \textbf{(GB)}       \\
+		\midrule
+		OpenSearch             & NYC Taxi          & 27                  & 2                  & 4                   \\
+		Lucene                 & NYC Taxi          & 27                  & 8                  & 16                  \\
+		Spark                  & Yahoo Streaming   & --                  & 1                  & 4                   \\
+		\multirow{2}{*}{HBase} & YCSB (Workload A) & \multirow{2}{*}{60} & \multirow{2}{*}{8} & \multirow{2}{*}{16} \\
+		                       & YCSB (Workload F) &                     &                    &                     \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\paragraph{\textbf{Applications and workloads.}}
+We evaluate \chipperName{} with four applications that use result caches.
+Table~\ref{tab:configs} shows which baselines we compare against for each application and Table~\ref{tab:workloads} summarizes the workloads and datasets.
+
+(1)~OpenSearch~2.19~\cite{opensearch} is a search engine that caches search-request results for each shard in a request cache.
+We use the NYC Taxi workload from the OpenSearch Benchmark~\cite{opensearch-benchmark}, whose index contains 165{,}346{,}692 documents and occupies \SI{27}{GB}.
+We use the query mix from~\cite{opensearch:tiered-cache}, designed to exercise the request cache, and issue queries with 13 clients.
+For the off-heap baseline, we use the tiered request cache with its storage tier on the NVMe SSD.
+
+(2)~Lucene~9.12~\cite{mccandless:lucene} is a search library that caches the results of frequently executed query filters in a query cache.
+We exercise the query cache through the OpenSearch server using a separate set of queries from the workload repository~\cite{opensearch:query_cache_benchmarks} that stress the query cache, issued by 8 clients.
+Lucene does not provide a storage-backed tier for its query cache, so we compare \chipperName{} only against the on-heap baseline and TeraHeap.
+
+(3)~Spark~3.3~\cite{zaharia:spark} is a data-processing framework that caches intermediate datasets (RDDs) for reuse across computations.
+We use the Yahoo Streaming Benchmark~\cite{chintapalli:yahoo} on Spark DStreams, which models an online advertising analytics workload.
+Events are generated at a controlled rate and ingested through Kafka, and each event contains an advertisement identifier and an event type.
+The application filters view events and performs a lookup in Redis to map each advertisement to its campaign.
+It then applies a sliding window over the records produced by the Redis join and persists these records in Spark's cache.
+We use a \SI{4}{s} batch interval, a \SI{300}{s} window, and a \SI{4}{s} slide, so each full window contains 75 batch RDDs.
+Consecutive windows reuse 74 of the 75 cached batch RDDs, or 98.7\% of the cached data, creating substantial reuse of long-lived objects in the Spark heap.
+For each window, the application aggregates the number of views per campaign and writes the resulting counts and completion timestamps to Redis.
+The on-heap baseline, TeraHeap, and \chipperName{} cache RDDs using \texttt{MEMORY\_ONLY}, while the off-heap baseline uses \texttt{MEMORY\_AND\_DISK}, which spills serialized RDD partitions to the NVMe SSD.
+
+(4)~HBase~2.6~\cite{vohra:hbase} is a key-value store that caches data blocks read from store files in a block cache.
+We evaluate HBase with two mixed workloads from YCSB~\cite{cooper:ycsb}: Workload~A, with 50\% reads and 50\% updates, and Workload~F, with 50\% reads and 50\% read-modify-writes (RMW).
+We load 60 million records (\SI{60}{GB}) and run each workload with 128 client threads.
+For the off-heap baseline, we use BucketCache with the mmap file I/O engine on the NVMe SSD, which, like \chipperName{}, accesses storage through the OS page cache.
+
+\paragraph{\textbf{Memory configuration}}
+We derive the memory configuration of each application from the size of its cached data, so that every configuration operates under the same DRAM budget and the same cache capacity in DRAM.
+We first size the on-heap cache to hold 5\% of the cached data, which models deployments in which the working set grows faster than the DRAM a server provides.
+We then derive the heap from the on-heap cache size, because each application sizes its cache as a fraction of the heap: the block cache in HBase uses 40\% of the heap and the request cache in OpenSearch uses 1\%, both default values, while we configure Lucene's query cache to 10\% of the heap, its default, and Spark's storage fraction to 50\%.
+Finally, we set the DRAM budget to twice the heap for HBase, OpenSearch, and Lucene, as their documentation recommends, which leaves the remaining DRAM for the OS page cache.
+For Spark we add \SI{3}{GB} to the heap for the driver and the page cache.
+Table~\ref{tab:workloads} reports the resulting sizes.
+We enforce the budget with a \emph{cgroup} memory limit that accounts for the managed heap, native memory, and the OS page cache, so configurations that place data on storage cannot use additional DRAM through the page cache.
+
+\paragraph{\textbf{Metrics}}
+We report the P99 latency and the throughput that each workload generator measures: YCSB for HBase, the OpenSearch Benchmark for OpenSearch and Lucene, and the Yahoo Streaming Benchmark for Spark.
+For GC metrics, we enable unified JVM logging (\texttt{-Xlog:gc*}) and extract the number of GCs, their type, their pause times.
+\chipperName{} also reports the volume of data it migrates to SH in each GC.

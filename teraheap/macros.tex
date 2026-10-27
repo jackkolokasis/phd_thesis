@@ -1,0 +1,12 @@
+% Paper-specific commands keep their original meanings without sharing generic names.
+\newcommand{\teraheapGC}{GC\xspace}
+\newcommand{\teraheapSD}{S/D\xspace}
+\newcommand{\teraheapName}{\emph{TeraHeap}\xspace}
+\newcommand{\teraheapMMIO}{mmio\xspace}
+\newcommand*\teraheapCircled[1]{\tikz[baseline=(char.base)]{
+  \node[shape=circle,fill,inner sep=0.4pt] (char) {\textcolor{white}{#1}};}}
+\newcommand\teraheapLike[1]{\begin{picture}(1,1)
+\ifnum0=#1\put(.5,.35){\circle{1}}\else
+\ifnum10=#1\put(.5,.35){\circle*{1}}\else
+\put(.5,.35){\circle{1}}\put(.5,.35){\circle*{.#1}}
+\fi\fi\end{picture}}

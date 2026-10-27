@@ -1,0 +1,62 @@
+\section{Introduction}
+
+Widely used search and analytics systems~\cite{elastic_search,lakshman:cassandra,mccandless:lucene,zaharia:spark} require substantial data movement to and from storage devices.
+Such applications typically run on managed runtimes, particularly the Java Virtual Machine (JVM).
+To mitigate the performance impact of I/O, these systems rely heavily on the OS page cache (I/O cache) in DRAM~\cite{apapag:aquila,apapag:fmap,jmal:hugemap,guanyu:tricache,huang:flashmap}, which buffers frequently accessed data to reduce access latency and I/O traffic.
+However, dividing DRAM between the JVM heap and the I/O cache has become increasingly challenging as applications process larger datasets while DRAM capacity scaling slows down~\cite{damon,zombieland,tirmazi:borg,weiner:tmo}.
+As a result, runtime adjustments to DRAM partitioning between the heap and the I/O cache can have a substantial impact on performance: allocating more memory to the heap can starve the I/O cache and increase I/O stalls, while allocating less increases garbage collection (GC) overhead~\cite{flexheap:jones:gc_handbook}.
+
+Existing heap resizing mechanisms~\cite{sun:multi_space_heap,wang:elasticMem,boehm:gc,zgc:heap_resize} improve GC efficiency but remain agnostic to the interaction between GC and I/O performance.
+They aim to reduce GC-related costs, such as pause time or GC CPU overhead, by adjusting heap size rather than managing the trade-off between heap and I/O cache usage.
+For example, Garbage First (G1)~\cite{detlefs:g1}, the default OpenJDK collector, adjusts heap size based on GC behavior: it grows the heap to reduce GC frequency and releases memory when observed pauses stay below user thresholds.
+To overcome the lack of I/O awareness, users often cap the maximum heap at a fixed fraction of DRAM, leaving the remainder to the I/O cache.
+For instance, Cassandra~\cite{lakshman:cassandra} and Elasticsearch~\cite{elastic_search} recommend assigning about half of the memory to the heap and half to the I/O cache~\cite{elasticsearch:guidelines,cassandra:guidelines}.
+The collector’s resizing mechanism still operates within these bounds.
+However, the heap cannot grow beyond the cap even when application demand rises, increasing GC overhead during phases with high allocation rates that require more heap space (Section~\S\ref{sec:gc_driven}).
+
+Previous work~\cite{jep351,jep346,wang:elasticMem,bruno:resize} has also examined how to reduce memory usage in containerized deployments by returning unused committed heap memory to the OS eagerly.
+Vertical G1 (VG1)~\cite{bruno:resize,jep346} preserves G1’s heuristics and adds periodic triggers to uncommit memory to meet memory usage targets, but it does not incorporate I/O cost in its decisions.
+Consequently, such occupancy-based resizing mechanisms fail to adapt during application phases where heap and I/O demands evolve together (Section~\S\ref{sec:occupancy_driven}).
+
+In this work, we propose \flexheapName{}, the first heap resizing mechanism, to the best of our knowledge, that accounts for both GC and I/O overheads in dynamic memory partitioning.
+We implement \flexheapName{} in G1, the default OpenJDK garbage collector, by replacing its heap resizing mechanism.
+\flexheapName{} continuously monitors how GC and I/O stalls affect application performance and mitigates their impact by either growing the heap to reclaim memory from the I/O cache or shrinking it to release memory back to the I/O cache.
+Our design tackles three key challenges:
+
+\paragraph{\textbf{Estimating GC cost and I/O stalls}}
+GC cost and I/O stalls manifest differently: GC includes stop-the-world (STW) pauses, where all application (mutator) threads are suspended, as well as concurrent phases, where GC threads run alongside mutators; I/O stalls occur when mutator threads block waiting for data from storage~\cite{kernel:sleeping}.
+To estimate their impact, \flexheapName{} quantifies both costs in terms of lost compute cycles.
+\flexheapName{} estimates CPU time differently for STW and concurrent phases of GC to reflect interference with mutator execution better.
+To estimate the I/O stall of mutator threads, \flexheapName{} uses an Extended Berkeley Packet Filter (eBPF)~\cite{ebpf} program to track the time mutator threads spend in uninterruptible sleep~\cite{kernel:sleeping} state in the Linux kernel.
+
+\paragraph{\textbf{Estimating the impact of heap resizing on GC cost and I/O stalls}}
+GC cost and I/O stalls both depend on the amount of memory used by the respective operations.
+However, an amount of memory may not necessarily have the same benefit for GC and I/O.
+The relative effects of reassigning memory between the heap and the I/O cache depend on workload and system characteristics, such as access patterns, working-set size, and storage devices.
+As a result, fixed weights for GC and I/O costs are difficult to choose, and a fixed analytical model of the GC--I/O relationship may not generalize across workloads and environments.
+\flexheapName{} therefore adopts a model-free design and bases its resizing decisions by monitoring the cycles lost for performing GC and for I/O stalls.
+When the combined cost increases, FlexHeap identifies which cost is responsible for this increase and guides subsequent resizing decisions.
+In particular, FlexHeap considers as the dominant overhead not simply the largest component in absolute terms, but the one most sensitive to recent resizing decisions.
+
+\paragraph{\textbf{Deciding the amount of the resizing step.}}
+Resizing steps should be aggressive when the combined cost of GC and I/O stalls increases, and conservative near steady state.
+In addition, shrink steps must respect G1’s pause time goal, which depends on maintaining enough eden space for the allocation of new objects.
+\flexheapName{} sizes each step in two stages.
+First, it computes a safe budget under G1 constraints: for growth, it limits the step to the available headroom below the maximum heap size, and for shrinking, it uses only the free space beyond the eden space required for the pause time goal.
+Then, \flexheapName{} sizes the step according to how the total cost has changed in the last interval: larger increases trigger larger adjustments, small changes lead to small steps, and bounds prevent overshoot.
+
+We implement \flexheapName{} in the G1 garbage collector of OpenJDK 21, a widely adopted long-term support release of the OpenJDK.
+We evaluate \flexheapName{} using two widely used systems: Elasticsearch and the analytic framework Spark.
+\flexheapName{} improves performance on average by 30\% for Elasticsearch and by 33\% for Spark.
+Compared to VG1, \flexheapName{} achieves on average 50\% higher performance, showing that memory repartitioning must also account for I/O-induced stalls in such workloads.
+
+Overall, our paper makes the following contributions:
+
+\begin{itemize}
+\item We examine the trade-off between application DRAM demands for heap and I/O cache and show the potential for improving overall performance by dynamically dividing DRAM between the two uses.
+
+\item We propose an \emph{application-agnostic and adaptive} mechanism which reassigns memory between heap and I/O cache by considering the combined overhead of \flexheapGC{} and I/O stalls during execution.
+
+\item We evaluate \flexheapName{} on widely used search and analytics systems and show that it outperforms prior GC-based and occupancy-based heap resizing mechanisms.
+
+\end{itemize}

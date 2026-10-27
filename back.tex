@@ -1,0 +1,77 @@
+\setstretch{1.15}
+
+\chapter{Background}
+\label{chapter:back}
+
+\section{JVM Heaps and Garbage Collection}
+
+The JVM allocates Java objects in a managed heap and reclaims objects that are no longer reachable from application roots, including thread stacks and static fields.
+A tracing collector starts from these roots, follows object references, and identifies the live portion of the heap.
+The remaining objects are garbage and their storage can be reused.
+
+Many collectors use the generational hypothesis: a large fraction of allocated objects become unreachable soon after allocation~\cite{Ungar:1984:GSN}.
+A generational heap separates a young generation, where new objects are allocated, from an old generation, where objects that survive young collections are promoted.
+In a copying collection, the collector moves live objects from a source space to a destination space and updates references to their new addresses.
+This approach can reclaim dead objects without individually linking free blocks, but requires space for the copied live objects and work proportional to the live data that is scanned or moved.
+
+A full collection can inspect and compact a larger portion of the heap than a young collection, but may pause application threads for longer.
+Collector designs therefore balance reclamation work, available memory, application throughput, and pause time.
+These tradeoffs become more pronounced when the heap includes storage-backed memory, because scanning or copying objects can trigger storage I/O.
+
+\section{Storage-Backed Heaps and Object Serialization}
+
+A storage-backed heap extends the address space available to the JVM by placing some or all of the heap on a storage device.
+With memory-mapped I/O, a file is mapped into the process address space and object loads and stores use ordinary memory references.
+If a referenced page is resident in DRAM, access can be served from memory; otherwise, a page fault causes the operating system to fetch the page from storage.
+The mapping preserves Java object representations and avoids converting each object to a separate byte representation, but storage access occurs at page granularity and can add latency and I/O traffic~\cite{flatflash, apapag:fmap}.
+
+A collector designed for DRAM may scan, copy, or compact storage-backed objects as part of ordinary reclamation.
+Such work can generate storage reads and writes and extend collection pauses~\cite{nvm-gc-eurosys}.
+Thus, expanding heap capacity to storage does not by itself preserve the performance characteristics of a DRAM-resident heap; the collector's treatment of storage-resident objects matters.
+
+Applications also place cached data outside the managed heap by serializing object graphs into byte streams and later deserializing them into Java objects.
+Serialization traverses the reachable graph from a selected root, while deserialization reconstructs object state and references.
+This representation supports storing data outside the heap, but it can constrain which objects are representable, requires graph traversal, and may allocate temporary objects during conversion~\cite{grochowski2019serialization, niemeyer2005learning, harold2006java}.
+Prior work reports serialization and deserialization costs in data-intensive frameworks~\cite{navasca:gerenuk, nguyen:skyway, matei:champions, taranov:naos}.
+These costs motivate storage-backed designs that preserve object representations, while the GC and I/O costs of such designs remain a separate challenge.
+
+\section{Incremental and Low-Pause Garbage Collection}
+
+Low-pause collectors divide the heap into independently reclaimable units, such as regions or pages, and collect selected units incrementally.
+Concurrent marking traces references from roots while application threads continue to run and records liveness information for the heap units.
+The collector later uses that information to select units for reclamation; identifying live objects, selecting collection candidates, evacuating objects, and reclaiming storage are distinct steps.
+A unit that contains live objects is not necessarily selected for evacuation in a given cycle.
+
+G1 is a region-based generational collector that combines stop-the-world (STW) pauses with concurrent phases~\cite{detlefs:g1}.
+Young collections pause application threads and evacuate selected young regions.
+A concurrent marking cycle identifies liveness across the heap, after which mixed collections can evacuate young regions and selected old regions.
+If incremental collections cannot recover enough space, G1 can perform a stop-the-world full collection.
+The live-byte estimates produced by marking inform region selection, while the collection set determines which regions are evacuated in a particular pause.
+
+G1 uses write barriers to record reference updates and maintain information about cross-region references.
+Mutator writes dirty entries in a card table, whose cards summarize portions of the heap that may contain updated references.
+Concurrent refinement processes dirty cards and updates remembered sets, which help the collector find references into regions being collected without scanning the entire heap.
+When an object moves, the collector must update references so that they resolve to the object's new location.
+These mechanisms are important to correctness whenever objects can reside in different heap regions or heaps.
+
+Other low-pause collectors, including Shenandoah and ZGC, also perform concurrent marking and incremental evacuation, but differ in their evacuation and forwarding mechanisms~\cite{flood:shenandoah, yang:zgc}.
+In G1, evacuation occurs during an STW pause; Shenandoah and ZGC can evacuate concurrently with mutators and use forwarding metadata to resolve references to moved objects.
+All three handle very large objects separately from ordinary incremental evacuation, because moving one large object can consume a substantial fraction of the available collection work.
+Their policies and fallback behavior differ, so a storage-aware mechanism must account for the target collector's specific phases and invariants rather than assuming that one collector's behavior generalizes to another.
+
+\section{DRAM, Heap Sizing, and the Operating-System Page Cache}
+
+The operating system uses a page cache to keep recently accessed file data in DRAM and to buffer writes before they reach storage.
+File-backed pages may therefore be served from memory on a cache hit, while a cache miss requires storage I/O.
+The page cache can also prefetch pages based on observed access patterns.
+Buffered I/O provides this caching without requiring an application to manage device-level transfer sizes and alignment; direct I/O bypasses the page cache and typically imposes such constraints.
+
+G1 can resize its heap in response to its own runtime signals, but such decisions do not directly account for file I/O stalls.
+Vertical G1 (VG1) adds periodic triggers and occupancy-based decisions that can return committed heap memory to the operating system more aggressively~\cite{bruno:resize, jep346}.
+This provides a useful baseline for understanding the DRAM-allocation problem, while leaving I/O cost outside the resizing decision.
+
+A JVM heap and the page cache can compete for the same DRAM.
+Increasing the heap can reduce allocation pressure and GC frequency, but leaves less memory available to cache file-backed data.
+Reducing the heap can free DRAM for the page cache, but may increase GC work.
+This tradeoff is particularly relevant when the heap itself is storage-backed, because page-cache capacity affects how often accesses to mapped heap pages reach the storage device.
+Heap resizing policies that consider only GC behavior may not capture the resulting I/O costs.

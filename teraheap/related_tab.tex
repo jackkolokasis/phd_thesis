@@ -1,0 +1,30 @@
+\setlength{\unitlength}{1em}
+
+\begin{table}[t]
+\centering
+\caption{Comparison of selected systems that extend managed heaps beyond DRAM.}
+\resizebox{0.8\columnwidth}{!}{%
+\begin{tabular}{lccccc}
+\hline
+\multicolumn{1}{c}{\multirow{2}{*}{\textbf{System}}} &
+  \multirow{2}{*}{\textbf{\begin{tabular}[c]{@{}c@{}}Developer \\ Effort\end{tabular}}} &
+  \multicolumn{2}{c}{\textbf{\begin{tabular}[c]{@{}c@{}}GC Scans\\ on the Device\end{tabular}}} &
+  \multicolumn{2}{c}{\textbf{Device Type}} \\ \cline{3-6}
+\multicolumn{1}{c}{}         &      & \textbf{Lazy} & \textbf{Eager}       & \textbf{Block-addressable} & \textbf{Byte-addressable} \\ \hline
+  LeakSurvivor~\cite{leaksurvivor}                  & High & (\checkmark)  & -                    & \checkmark                 & -                         \\
+  Melt~\cite{bond:melt}                             & None & (\checkmark)  & -                    & \checkmark                 & -                         \\
+  Write Rationing~\cite{akram:ration}               & None & -             & \checkmark           & -                          & \checkmark                \\
+  Panthera~\cite{wang:Panthera}                     & Low  & -             & \checkmark           & -                          & \checkmark                \\
+  NVM-friendly-GC~\cite{nvm-gc-eurosys}             & None & -             & \checkmark           & -                          & \checkmark                \\
+  JPD Heap~\cite{jpd_heap}                     & High & -             & \checkmark           & -                          & \checkmark                \\
+  GCMove~\cite{gcmove}                      & None & -             & \checkmark           & -                          & \checkmark                \\
+  ThinGC~\cite{thingc}                      & None & -             & \checkmark           & -                          & \checkmark                \\
+  TMO~\cite{weiner:tmo}                          & None & -             & \checkmark           & \checkmark                 & -                         \\
+  Semeru~\cite{wang:semeru}                       & None & -             & \checkmark           & -                          & \checkmark                \\
+  MemLiner~\cite{wang:memliner}                     & None & -             & \checkmark           & -                          & \checkmark                \\
+  Mako~\cite{ma:mako}                         & None & -             & \checkmark           & -                          & \checkmark                \\ \hline
+\textbf{TeraHeap (this thesis)} & Low  & \checkmark    & -                    & \checkmark                 & \checkmark                \\ \hline
+\end{tabular}%
+}
+\label{tab:related}
+\end{table}

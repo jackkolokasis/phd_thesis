@@ -1,0 +1,70 @@
+\section{Related Work}
+
+\paragraph{\textbf{Heuristic heap sizing.}}
+Brecht et al.~\cite{brecht:nogc} propose a heuristic based resizing mechanism for expanding the heap in Boehm-Demers-Weiser GC~\cite{boehm:gc}.
+They aim to reduce \flexheapGC{} cost while avoiding paging.
+The heap grows by different amounts, depending on its current size in relations to a set of predefined
+hand-tuned threshold values. %However, the heap size is never reduced.
+%
+PAMM~\cite{zhang:pamm} exploits repetition in program phase behavior to manage memory adaptively.
+However, their technique does not apply to complex real-life big data frameworks.
+%
+IslaVista~\cite{grz:isla_vista} proposes a heap resizing policy to avoid \flexheapGC{}-induced paging using OS information.
+Heap grows linearly as there are not allocation stalls and shrinks aggressively when allocation stalls are detected.
+%
+Bruno et al.~\cite{bruno:resize} propose a sizing policy enabling JVM to dynamically grow and shrink the heap according to the cloud application requirements.
+%
+Cook et al.~\cite{cook:auto} and Sim{\~a}o et al.~\cite{simao:adaptability} study how the \flexheapGC{} heap resizing policy affects the performance of the application.
+%
+Tavakolisomeh et al.~\cite{zgc:heap_resize} propose the heap size adjustment based on the CPU time spent on \flexheapGC{}.
+This approach focuses on minimizing CPU overhead for concurrent collectors, ensuring efficient memory use without stalling application performance.
+%
+In contrast, \flexheapName{} tackles a broader challenge by dynamically partitioning DRAM between the heap and I/O cache, reducing the combined overhead of \flexheapGC{} time and I/O wait time.
+
+\paragraph{\textbf{Explicit model-based heap sizing.}}
+Yang et al.~\cite{yang:real_mem} proposed an analytical model to adjust heap size in multi-tenant environments.
+The model monitors application memory allocation and footprint, periodically changing heap size to minimize \flexheapGC{} cost and paging.
+However, their approach needs OS modifications.
+%
+Sun et al.~\cite{sun:multi_space_heap} tackle the issue of memory management for many applications operating under a single JVM by proposing segregated, per-application heaplets.
+They present an analytical model that modifies heaplet sizes to equilibrate \flexheapGC{} frequency among all applications, so preventing any single application from unduly impacting the system's overall performance.
+%
+Tay et al.~\cite{tay:page_fault} formulate a page fault equation that correlates the frequency of page faults with heap size and resident heap size, predicated on established \flexheapGC{} and OS rules for a certain program input.
+They propose a heap sizing rule that reduces page faults.
+However, alterations in input or system load necessitate parameter recalibration, hence constraining its adaptability.
+%
+Vengerov~\cite{vengerov:gc_analysis} creates a mathematical model to optimize throughput in generational heaps by tuning \flexheapGC{} parameters.
+%
+Singer et al.~\cite{singer:economics} apply microeconomic supply and demand theory to model \flexheapGC{} behavior, using elasticity to guide heap size expansion.
+However, they require from users to set a target elasticity value which is not intuitive.
+%
+MemBalancer~\cite{kirisame:membalancer} proposes a model-based heap resizing policy for V8 that derives a compositional square-root heap-limit rule.
+Its key idea is to coordinate heap allocations across multiple concurrent runtimes under a shared memory budget so as to optimize the trade-off between total GC time and memory usage.
+%
+Unlike these approaches, \flexheapName{} does not rely on an explicit analytical or predictive model of heap behavior.
+Instead, it uses a model-free, feedback-driven controller based on observed changes in GC and I/O cost, which avoids assuming a fixed heap--I/O relationship across workloads and storage environments.
+
+\paragraph{\textbf{Control-theoretic heap sizing.}}
+White et al.~\cite{white:pid} suggest a Proportional-Integral-Derivative (PID) controller that monitors the \flexheapGC{} overhead and modifies the heap resize ratio to uphold a user-defined target \flexheapGC{} goal.
+%
+Storm et al.~\cite{storm:db2} examine autonomic database configuration through control theory to create a self-tuning memory manager that dynamically modifies heap sizes in databases.
+Their methodology employs separate heaps for different memory-intensive operations, including SQL cache and buffer pool.
+The suggested strategy employs a cost/benefit estimation model to adjust the size of each heap, aiming to equilibrate the cost/benefit metrics among all heaps.
+They utilize a multi-input multi-output (MIMO) controller with integral control for tuning, highlighting the advantages of this controller-based approach, which encompasses rapid convergence, swift adaptability, and stable responses to noise.
+
+\paragraph{\textbf{Cross-runtime heap sizing.}}
+Prior work~\cite{alonso:advisor,hertz:waste_not,cameron:forseti,wang:elasticMem} has studied dynamic heap sizing in shared environments, adjusting heap sizes across multiple managed processes or VMs to reduce paging or improve overall throughput.
+ElasticMem~\cite{wang:elasticMem}, for example, reclaims heap memory from data analytics applications and returns it to the OS for use by other processes.
+Our work differs in both scope and abstraction.
+Prior systems operate at the JVM abstraction boundary, modeling heap size as a function of throughput without distinguishing the causes of performance degradation.
+\flexheapName{}, in contrast, explicitly measures I/O stall time and separates GC displacement from blocked mutator progress.
+This cross-layer attribution lies outside the black-box interface assumed by prior multi-runtime allocators, and is important because heap--I/O interactions are mediated by I/O cache dynamics rather than by heap size alone.
+
+\paragraph{\textbf{I/O cache and application coordination.}}
+P2Cache~\cite{lee:p2cache} proposes an application-specific I/O cache that enables developers to build a custom I/O cache that aligns with I/O characteristics of their application.
+%
+Symbiosis~\cite{dai:symbiosis} dynamically configures the size of user-space block caches in persistent key-value stores with the I/O cache to improve their performance, requiring offline profiling.
+%
+Unlike these systems, \flexheapName{} focuses on the dynamic DRAM division between the JVM heap and I/O cache without application knowledge or offline profiling.
+%
+Also, \flexheapName{} could be applicable for systems~\cite{khanh:polar,teraheap,kolokasis:teracache,kolokasis:teraheap_toplas,kolokasis:smartsweep} that use I/O cache to extend the JVM heap over slower memory tiers, such as fast storage devices or remote memory.

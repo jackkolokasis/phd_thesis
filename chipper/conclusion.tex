@@ -1,0 +1,9 @@
+\section{Conclusion}
+
+Latency-sensitive applications rely on both low-pause garbage collectors and large result caches to keep response times low.
+Yet existing approaches cannot scale result caches beyond DRAM without introducing overheads that affect tail latency: storage-backed off-heap caches incur S/D costs, while prior storage-backed heaps rely on throughput-oriented collectors with long GC pauses.
+We present \chipperName{}, the first storage-backed heap for low-pause garbage collectors.
+\chipperName{} integrates migration to storage with the collector's GC work budget, preserves evacuation parallelism across SH regions, and provides a separate migration path for large objects that are not evacuated during incremental GCs.
+We implement \chipperName{} in G1 and evaluate it with OpenSearch, Lucene, HBase, and Spark.
+\chipperName{} improves P99 latency by up to $161\times$ over DRAM-limited on-heap caches, $34\times$ over storage-backed off-heap caches, and $9\times$ over TeraHeap.
+These results show that fast local storage can extend managed heaps for latency-sensitive applications without sacrificing low-pause garbage collection.

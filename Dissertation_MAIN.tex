@@ -13,7 +13,9 @@
 \usepackage{paralist}
 \usepackage{fancyvrb}
 \usepackage{algorithm}
-\usepackage{algorithmic}
+\usepackage{algpseudocode}
+\usepackage{xspace,siunitx,booktabs}
+\usepackage{tikz}
 \usepackage[nomove]{cite}
 
 \usepackage{pifont}
@@ -140,6 +142,11 @@ Engineering, Computer Science Department.}}
     Institute of Computer Science (ICS).}}
 
 \newcommand{\thesisdate}{June 2026}
+% Paper-specific commands are named separately so captions and contents entries
+% retain the correct meaning when read outside their original chapter.
+\input{teraheap/macros.tex}
+\input{chipper/macros.tex}
+\input{flexheap/macros.tex}
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -174,6 +181,7 @@ Engineering, Computer Science Department.}}
 \input{chipper.tex}
 %
 \input{flexheap.tex}
+\input{Dissertation_related.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%% MAIN BODY  %%%%%%%%%%%
@@ -210,5 +218,4 @@ Engineering, Computer Science Department.}}
 \pagestyle{plain} \thispagestyle{empty}
 
 \end{document}
-
 

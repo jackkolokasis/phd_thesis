@@ -1,0 +1,161 @@
+\section{Related Work}
+\teraheapName{} combines techniques from several areas, including memory
+management and storage. Thus, we group the related work in the
+following categories:
+%
+(1) scaling managed heaps beyond local DRAM,
+%
+(2) region-based memory management, and
+%
+(3) mitigating \teraheapSD overhead.
+
+\subsection{Taxonomy of Scaling Managed Heaps Beyond DRAM}
+Recent efforts target local block-addressable storage devices, such as
+hard disk drives (HDD) and NVMe SSDs, and local
+byte-addressable NVM, or remote memory (DRAM) for storing managed
+heaps beyond DRAM.
+
+\paragraph{\textbf{Scaling managed heaps with local block-addressable
+storage devices}}
+One line of recent work focuses on using block-addressable storage
+devices. Melt~\cite{bond:melt} and Leaksurvivor~\cite{leaksurvivor}
+use a primary heap over DRAM and a second heap over an HDD for moving
+cold objects that programs do not use. Unlike \teraheapName{}, these works do
+not use a memory-mapped I/O but maintain a specialized lookup
+mechanism in existing JVM code to track the offset of each object in
+the device. Although this technique targets the high latency of the
+hard disk drives, it requires multiple systems calls and incurs the
+high hit overhead of user space lookups in every load/store operation.
+Also, LeakSurvivor~\cite{leaksurvivor} leverages the capacity of the
+HDD to perform lazy object reclamation. However, it reclaims objects
+in the HDD only when the device becomes full, paying high \teraheapGC cost for
+long-running applications. Performing \teraheapGC scans over a storage device
+introduces high I/O traffic, increasing \teraheapGC pause time.
+TMO~\cite{weiner:tmo} monitors application DRAM usage and
+transparently offloads cold data to NVMe SSD. Unlike these works,
+\teraheapName{} controls which objects to move to the second heap and
+eliminates slow \teraheapGC traversals over objects on NVMe SSD. Finally,
+prior effort~\cite{kolokasis:teracache} discusses a preliminary
+prototype of \teraheapName{}~\cite{teraheap}, while this article presents the
+design and implementation of \teraheapName{} in OpenJDK17.
+
+\paragraph{\textbf{Scaling managed heaps with byte-addressable devices}}
+Recent research efforts focus on extending the managed heaps with
+local byte-addressable NVM or remote DRAM. Akram et
+al.~\cite{akram:ration, akram:crystal}, GCMove~\cite{gcmove}, and
+ThinGC~\cite{thingc} focus on improving NVM write endurance. They
+select which objects to move from DRAM to NVM based on their hotness.
+Existing work uses two techniques to track object hotness: (1) through
+load reference barriers used by concurrent copying collectors to
+identify the most accessed objects, and (2) through post-write
+reference barriers to identify the most written/updated objects. Both
+techniques increase the cost of the barriers and can work with
+specific garbage collectors. NVM-friendly-GC~\cite{Xu:gc_evaluation}
+report high \teraheapGC overhead with NVM-backed volatile heaps and optimize
+the G1 \teraheapGC for Intel Optane persistent memory. It allocates its heap
+entirely on NVM and uses DRAM as a user-space cache for \teraheapGC
+operations. However, all the accesses to objects by application
+(mutator) threads are served by NVM. Panthera~\cite{wang:Panthera}
+extends the managed heap over hybrid DRAM and non-volatile memory
+(NVM) to scale on-heap caching in Spark. Panthera increases \teraheapGC
+overhead as scanning and compacting objects on the managed NVM heap
+costs more than collecting the DRAM heap. Also,
+JDPHeap~\cite{jpd_heap} uses a managed heap in DRAM and a second
+managed heap over NVM. It introduces an extensive programming model
+that enables users to select which objects to move from DRAM to NVM
+and vice versa. However, unlike \teraheapName{}, JPDHeap cannot avoid
+expensive \teraheapGC scans over objects in NVM.
+
+Also, there is an amount of effort~\cite{wang:memliner, wang:semeru,
+ma:mako} for extending the managed heaps using remote memory. On the
+one hand, Memliner~\cite{wang:memliner} is designed for
+software-disaggregated datacenters. MemLiner reorganizes the access
+order of the objects by the \teraheapGC threads to follow a similar (not
+identical) memory-access path with the mutator threads to enhance the
+speed of far-memory accesses during \teraheapGC. On the other hand,
+Semeru~\cite{wang:semeru} and Mako~\cite{ma:mako} target
+hardware-designed datacenters. Semeru supports running managed big
+data frameworks on disaggregated hardware by dividing the conventional
+JVM into two instances:
+%
+(1) the CPU-JVM instance that executes the program on the CPU server
+and
+%
+(2) the memory-JVM instance that performs \teraheapGC on the memory
+server.
+%
+To maximize \teraheapGC performance, Semeru proposes a distributed garbage
+collector that offloads the liveness analysis for Java objects to
+memory servers concurrently with mutator threads. Unlike Semeru, Mako
+offloads to memory servers both object scanning for liveness analysis
+and evacuation, reducing \teraheapGC pause time. Although DRAM is
+byte-addressable, these approaches rely on the OS-swap system to move
+objects between local and remote memory at page granularity. \teraheapName{}
+is orthogonal to these approaches because it exploits fast local storage devices for scaling the
+capacity of the managed heap.
+
+\input{teraheap/related_tab}
+
+Table~\ref{tab:related} illustrates the taxonomy of existing
+approaches that scale the managed heaps beyond local DRAM capacity
+based on the following characteristics:
+%
+(1) development effort,
+%
+(2) object reclamation on the device or remote memory and
+%
+(3) device type.
+%
+\teraheapName{} with low development effort uses the framework's knowledge
+regarding which objects are suitable for moving to the storage device.
+Also, \teraheapName{} avoids \teraheapGC scans over the storage device because it leverages the
+high capacity of the devices to perform lazy object reclamation.
+Finally, it can still improve application performance even if H2 is in
+a local block-addressable storage device or a byte-addressable device.
+
+\subsection{Region-based Memory Management}
+Managed big data frameworks have started to use region-based memory
+management for large heaps. Systems, such as
+Gerenuk~\cite{navasca:gerenuk} and Facade~\cite{nguyen:facade},
+provide a compilation framework that transforms programmer-specified
+classes for off-heap allocation at compile time, thereby reducing the
+serialization overhead. However, these systems increase programmer
+effort by requiring the developer to specify when to free objects from
+native memory and modify legacy applications. Broom~\cite{gog:broom}
+uses region annotations but requires refactoring of applications'
+source code. Yak~\cite{khanh:yak} requires programmers to annotate
+epochs in applications. Yak allocates all objects in an epoch on a
+second region-based heap to reduce \teraheapGC time. The epoch abstraction is
+appropriate for the map-reduce programming pattern. However, it cannot
+handle objects computed lazily or accessed from arbitrary program
+locations. Deca~\cite{lu:deca} proposes lifetime-based memory
+management for Spark. However, their work only applies to Spark and
+cannot be used for other frameworks. Unlike prior work, \teraheapName{}
+requires adding hints only in the framework layer. Then, \teraheapName{}
+dynamically selects all appropriate objects in the transitive closure
+of root objects. NG2C~\cite{bruno:n2gc} uses runtime profiling to
+identify long-lived objects. They incur online profiling overhead.
+Other work uses offline allocation site profiling to manage
+objects~\cite{pretenuring,Blackburn:2001:PJ}. Lifetime profiling can
+complement \teraheapName{} and further improve efficiency.
+
+\subsection{Mitigating \teraheapSD Overhead}
+Several libraries~\cite{thrift,kryo,protocol-buffers} improve the
+efficiency of \teraheapSD, but they cannot reduce high \teraheapGC cost in big data
+frameworks. Skyway~\cite{nguyen:skyway} reduces the \teraheapSD cost by
+directly transferring objects through the network in distributed
+managed heaps, but it does not cope with DRAM limitations and \teraheapGC
+overheads. SSDStreamer~\cite{ssdstreamer} is a userspace SSD-based
+caching system that uses DRAM as a stream buffer for SSD devices.
+Although SSDStreamer reduces \teraheapSD cost by providing a lightweight
+serializer, it cannot reduce \teraheapGC cost and the memory pressure in the
+managed heap. Recent work~\cite{jang:arch, pourhabibi:optimus}
+proposes optimizations for \teraheapSD with custom hardware extensions and
+modifications to the programming model. Other
+work~\cite{matei:champions, taranov:naos, ibanez:zerializer} focuses
+on reducing \teraheapSD cost by reducing the number of object copies across
+buffers. This body of work does not mitigate directly \teraheapGC overhead.
+\teraheapName{} is the first work that eliminates \teraheapSD cost without increasing
+\teraheapGC overhead for a large portion of objects in big data analytics
+frameworks.
+

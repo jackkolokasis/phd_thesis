@@ -1196,7 +1196,7 @@
   edition = {1st},
 }
 
-@chapter{santos:infinispan,
+@incollection{santos:infinispan,
   author = {R Santos, Wagner},
   doi = {10.0000/9781782169987-001},
   url = {https://doi.org/10.0000/9781782169987-001},
@@ -1217,7 +1217,8 @@
   address = {USA},
 }
 
-@online{elastic_search,
+@misc{elastic_search,
+  key = {Elasticsearch},
   author = {},
   title = {{Elasticsearch: The Official Distributed Search \& Analytics Engine |
            Elastic}},
@@ -1227,7 +1228,8 @@
   note = {Accessed: 2026-10-14},
 }
 
-@online{solr,
+@misc{solr,
+  key = {Apache Solr},
   author = {},
   title = {{Welcome to Apache Solr - Apache Solr}},
   howpublished = {\url{https://solr.apache.org/}},
@@ -1621,4 +1623,609 @@
   month = jun,
   articleno = {169},
   numpages = {24},
+}
+
+% References imported from teraheap for the dissertation chapter.
+
+@article{flink,
+  title={Apache flink: Stream and batch processing in a single engine},
+  author={Carbone, Paris and Katsifodimos, Asterios and Ewen, Stephan and Markl, Volker and Haridi, Seif and Tzoumas, Kostas},
+  journal={The Bulletin of the Technical Committee on Data Engineering},
+  volume={38},
+  number={4},
+  pages={28--38},
+  year={2015},
+  publisher={Institute of Electrical and Electronics Engineers (IEEE)}
+}
+
+@incollection{gds,
+  title={Graph Data Science Using Neo4j},
+  author={Hodler, Amy E and Needham, Mark},
+  booktitle={Massive Graph Analytics},
+  pages={433--457},
+  year={2022},
+  publisher={Chapman and Hall/CRC}
+}
+
+@inproceedings{hadoop,
+  author={Nandimath, Jyoti and Banerjee, Ekata and Patil, Ankur and Kakade, Pratima and Vaidya, Saumitra and Chaturvedi, Divyansh},
+  booktitle={2013 IEEE 14th International Conference on Information Reuse \& Integration (IRI)},
+  title={Big data analysis using Apache Hadoop},
+  year={2013},
+  volume={},
+  number={},
+  pages={700-703},
+  keywords={Data processing;Computers;Distributed databases;Information management;Data handling;Data storage systems;Hadoop;Big data;Map Reduce;Data processing},
+  doi={10.1109/IRI.2013.6642536}
+}
+
+@inproceedings{lucene,
+  title={Apache lucene 4},
+  author={Bia{\l}ecki, Andrzej and Muir, Robert and Ingersoll, Grant and Imagination, Lucid},
+  booktitle={SIGIR 2012 workshop on open source information retrieval},
+  pages={17},
+  year={2012}
+}
+
+@misc{neo4j:ssd,
+author = {Community, Neo4j},
+title = {How to leverage Flash Memory to cache Neo4j data - Neo4j Graph Platform - Neo4j Online Community},
+howpublished = {\url{https://community.neo4j.com/t/how-to-leverage-flash-memory-to-cache-neo4j-data/43243}},
+month = {},
+year = {2024},
+note = {(Accessed on 03/04/2024)}
+}
+
+@article{teraheap:cassandra,
+  title={Apache cassandra},
+  author={Cassandra, Apache},
+  journal={Website. Available online at http://planetcassandra. org/what-is-apache-cassandra},
+  volume={13},
+  year={2014}
+}
+
+% References imported from flexheap for the dissertation chapter.
+
+@inproceedings{alonso:advisor,
+  author = {Alonso, Raphael and Appel, Andrew W.},
+  title = {An advisor for flexible working sets},
+  year = {1990},
+  isbn = {0897913590},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/98457.98753},
+  doi = {10.1145/98457.98753},
+  booktitle = {Proceedings of the 1990 ACM SIGMETRICS Conference on Measurement
+               and Modeling of Computer Systems},
+  pages = {153–162},
+  numpages = {10},
+  location = {Univ. of Colorado, Boulder, Colorado, USA},
+  series = {SIGMETRICS '90},
+}
+
+@article{boehm:gc,
+  author = {Boehm, Hans-Juergen and Weiser, Mark},
+  title = {{Garbage Collection in an Uncooperative Environment}},
+  journal = {Software: Practice and Experience},
+  volume = {18},
+  number = {9},
+  pages = {807--820},
+  doi = {https://doi.org/10.1002/spe.4380180902},
+  year = {1988},
+}
+
+@article{brecht:nogc,
+  author = {Brecht, Tim and Arjomandi, Eshrat and Li, Chang and Pham, Hang},
+  title = {{Controlling Garbage Collection and Heap Growth to Reduce the
+           Execution Time of Java Applications}},
+  year = {2006},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  volume = {28},
+  number = {5},
+  issn = {0164-0925},
+  url = {https://doi.org/10.1145/1152649.1152652},
+  doi = {10.1145/1152649.1152652},
+  journal = {ACM Trans. Program. Lang. Syst.},
+  month = sep,
+  pages = {908--941},
+  numpages = {34},
+}
+
+@inproceedings{bruno:resize,
+  author = {Bruno, Rodrigo and Ferreira, Paulo and Synytsky, Ruslan and
+            Fydorenchyk, Tetiana and Rao, Jia and Huang, Hang and Wu, Song},
+  title = {{Dynamic Vertical Memory Scalability for OpenJDK Cloud Applications}},
+  year = {2018},
+  isbn = {9781450358019},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/3210563.3210567},
+  doi = {10.1145/3210563.3210567},
+  booktitle = {Proceedings of the 2018 ACM SIGPLAN International Symposium on
+               Memory Management},
+  pages = {59--70},
+  numpages = {12},
+  location = {Philadelphia, PA, USA},
+  series = {ISMM '18},
+}
+
+@inproceedings{cameron:forseti,
+  author = {Cameron, Callum and Singer, Jeremy and Vengerov, David},
+  title = {The judgment of forseti: economic utility for dynamic heap sizing of
+           multiple runtimes},
+  year = {2015},
+  isbn = {9781450335898},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/2754169.2754180},
+  doi = {10.1145/2754169.2754180},
+  booktitle = {Proceedings of the 2015 International Symposium on Memory
+               Management},
+  pages = {143–156},
+  numpages = {14},
+  location = {Portland, OR, USA},
+  series = {ISMM '15},
+}
+
+@misc{cassandra:guidelines,
+  author = {{Apache Cassandra}},
+  title = {Hardware Choices | {Apache Cassandra} Documentation},
+  howpublished = {\url{
+                  https://cassandra.apache.org/doc/latest/cassandra/managing/operating/hardware.html
+                  }},
+  year = {2025},
+  note = {Accessed: April 2026},
+}
+
+@misc{commoncr84:online,
+  author = {Common Crawl},
+  title = {{Common Crawl - Blog - January 2022 crawl archive now available}},
+  howpublished = {\url{
+                  https://commoncrawl.org/blog/january-2022-crawl-archive-now-available
+                  }},
+  month = jan,
+  year = {2022},
+  note = {(Accessed: January 2025)},
+}
+
+@inproceedings{cook:auto,
+  author = {Cook, Jonathan E. and Klauser, Artur W. and Wolf, Alexander L. and
+            Zorn, Benjamin G.},
+  title = {{Semi-Automatic, Self-Adaptive Control of Garbage Collection Rates in
+           Object Databases}},
+  year = {1996},
+  isbn = {0897917944},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/233269.233354},
+  doi = {10.1145/233269.233354},
+  booktitle = {Proceedings of the 1996 ACM SIGMOD International Conference on
+               Management of Data},
+  pages = {377--388},
+  numpages = {12},
+  location = {Montreal, Quebec, Canada},
+  series = {SIGMOD '96},
+}
+
+@inproceedings{dai:symbiosis,
+  author = {Yifan Dai and Jing Liu and Andrea Arpaci-Dusseau and Remzi
+            Arpaci-Dusseau},
+  title = {{Symbiosis: The Art of Application and Kernel Cache Cooperation}},
+  booktitle = {22nd USENIX Conference on File and Storage Technologies},
+  year = {2024},
+  isbn = {978-1-939133-38-0},
+  pages = {51--69},
+  url = {https://www.usenix.org/conference/fast24/presentation/dai},
+  publisher = {USENIX Association},
+  address = {Berkeley, CA, USA},
+  month = feb,
+  series = {FAST '24},
+  location = {Santa Clara, CA, USA},
+}
+
+@book{ebpf,
+  title = {Learning eBPF},
+  author = {Rice, Liz},
+  year = {2023},
+  publisher = {" O'Reilly Media, Inc."},
+}
+
+@misc{elasticcloud,
+  author = {{Elastic Cloud}},
+  title = {Sizing Hot-Warm Architectures for Logging and Metrics in the {
+           Elasticsearch} Service on {Elastic Cloud}},
+  howpublished = {\url{
+                  https://www.elastic.co/blog/sizing-hot-warm-architectures-for-logging-and-metrics-in-the-elasticsearch-service-on-elastic-cloud
+                  }},
+  year = {2018},
+  note = {Accessed: April 2026},
+}
+
+@misc{elasticsearch:guidelines,
+  author = {{Elasticsearch}},
+  title = {{JVM} Settings | Reference},
+  howpublished = {\url{
+                  https://www.elastic.co/docs/reference/elasticsearch/jvm-settings
+                  }},
+  year = {2025},
+  note = {Accessed: April 2026},
+}
+
+@misc{esrally,
+  author = {{ESRally}},
+  title = {Rally 2.12.0 Documentation},
+  howpublished = {\url{https://esrally.readthedocs.io/en/stable/}},
+  year = {2025},
+  note = {Accessed: April 2026},
+}
+
+@book{flexheap:jones:gc_handbook,
+  author = {Jones, Richard and Hosking, Antony and Moss, Eliot},
+  title = {{The Garbage Collection Handbook: The Art of Automatic Memory
+           Management}},
+  year = {2023},
+  isbn = {1420082795},
+  publisher = {Chapman \& Hall/CRC},
+  doi = {https://doi.org/10.1201/9781003276142},
+  address = {Boca Raton, FL, USA},
+  edition = {2nd},
+}
+
+@misc{g1:guidelines,
+  author = {{Oracle}},
+  title = {Garbage-First Garbage Collector Tuning},
+  howpublished = {\url{
+                  https://docs.oracle.com/javase/8/docs/technotes/guides/vm/gctuning/g1_gc_tuning.html
+                  }},
+  year = {2025},
+  note = {Accessed: April 2026},
+}
+
+@inproceedings{grz:isla_vista,
+  author = {Grzegorczyk, Chris and Soman, Sunil and Krintz, Chandra and Wolski,
+            Rich},
+  title = {{Isla Vista Heap Sizing: Using Feedback to Avoid Paging}},
+  year = {2007},
+  isbn = {0769527647},
+  publisher = {IEEE Computer Society},
+  address = {Washington, DC, USA},
+  url = {https://doi.org/10.1109/CGO.2007.20},
+  doi = {10.1109/CGO.2007.20},
+  booktitle = {Proceedings of the International Symposium on Code Generation and
+               Optimization},
+  pages = {325--340},
+  numpages = {16},
+  series = {CGO '07},
+  location = {San Jose, California, USA},
+}
+
+@inproceedings{guanyu:tricache,
+  author = {Guanyu Feng and Huanqi Cao and Xiaowei Zhu and Bowen Yu and Yuanwei
+            Wang and Zixuan Ma and Shengqi Chen and Wenguang Chen},
+  title = {{TriCache: A User-Transparent Block Cache Enabling High-Performance
+           Out-of-Core Processing with In-Memory Programs}},
+  year = {2022},
+  publisher = {USENIX Association},
+  address = {Berkeley, CA, USA},
+  url = {https://www.usenix.org/conference/osdi22/presentation/feng},
+  booktitle = {16th USENIX Symposium on Operating Systems Design and
+               Implementation},
+  isbn = {978-1-939133-28-1},
+  pages = {395--411},
+  numpages = {17},
+  month = jul,
+  series = {OSDI '22},
+  location = {Carlsbad, CA, USA},
+}
+
+@inproceedings{hertz:waste_not,
+  author = {Hertz, Matthew and Kane, Stephen and Keudel, Elizabeth and Bai,
+            Tongxin and Ding, Chen and Gu, Xiaoming and Bard, Jonathan E.},
+  title = {Waste not, want not: resource-based garbage collection in a shared
+           environment},
+  year = {2011},
+  isbn = {9781450302630},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1993478.1993487},
+  doi = {10.1145/1993478.1993487},
+  booktitle = {Proceedings of the International Symposium on Memory Management},
+  pages = {65–76},
+  numpages = {12},
+  location = {San Jose, California, USA},
+  series = {ISMM '11},
+}
+
+@inproceedings{huang:flashmap,
+  author = {Huang, Jian and Badam, Anirudh and Qureshi, Moinuddin K. and Schwan,
+            Karsten},
+  title = {{Unified Address Translation for Memory-mapped SSDs with FlashMap}},
+  year = {2015},
+  isbn = {9781450334020},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/2749469.2750420},
+  doi = {10.1145/2749469.2750420},
+  booktitle = {Proceedings of the 42nd Annual International Symposium on
+               Computer Architecture},
+  pages = {580--591},
+  numpages = {12},
+  location = {Portland, Oregon},
+  series = {ISCA '15},
+}
+
+@misc{jep346,
+  author = {{OpenJDK}},
+  title = {{JEP} 346: Promptly Return Unused Committed Memory from {G1}},
+  howpublished = {\url{https://openjdk.org/jeps/346}},
+  year = {2023},
+  note = {Accessed: April 2026},
+}
+
+@misc{jep351,
+  author = {{OpenJDK}},
+  title = {{JEP} 351: {ZGC}: Uncommit Unused Memory (Experimental)},
+  howpublished = {\url{https://bugs.openjdk.org/browse/JDK-8220347}},
+  year = {2019},
+  note = {Accessed: April 2026},
+}
+
+@article{kernel:sleeping,
+  title = {Kernel korner: sleeping in the kernel},
+  author = {Sovani, Kedar},
+  journal = {Linux Journal},
+  volume = {2005},
+  number = {137},
+  pages = {11},
+  year = {2005},
+  publisher = {Belltown Media Houston, TX},
+}
+
+@article{kirisame:membalancer,
+  author = {Kirisame, Marisa and Shenoy, Pranav and Panchekha, Pavel},
+  title = {Optimal heap limits for reducing browser memory use},
+  year = {2022},
+  issue_date = {October 2022},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  volume = {6},
+  number = {OOPSLA2},
+  url = {https://doi.org/10.1145/3563323},
+  doi = {10.1145/3563323},
+  journal = {Proc. ACM Program. Lang.},
+  month = oct,
+  articleno = {160},
+  numpages = {21},
+}
+
+@inproceedings{lee:p2cache,
+  author = {Lee, Dusol and Choi, Inhyuk and Lee, Chanyoung and Lee, Sungjin and
+            Kim, Jihong},
+  title = {{P2Cache: An Application-Directed Page Cache for Improving
+           Performance of Data-Intensive Applications}},
+  year = {2023},
+  isbn = {9798400702242},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/3599691.3603408},
+  doi = {10.1145/3599691.3603408},
+  booktitle = {Proceedings of the 15th ACM Workshop on Hot Topics in Storage and
+               File Systems},
+  pages = {31--36},
+  numpages = {6},
+  location = {Boston, MA, USA},
+  series = {HotStorage '23},
+}
+
+@misc{linux:iowait,
+  author = {{Linux Kernel}},
+  title = {Documentation/filesystems/proc.rst},
+  howpublished = {\url{
+                  https://kernel.googlesource.com/pub/scm/linux/kernel/git/stable/linux-stable/+/refs/tags/v5.8.4/Documentation/filesystems/proc.rst
+                  }},
+  month = {},
+  year = {},
+  note = "[Accessed: April 2026]",
+}
+
+@article{simao:adaptability,
+  author = {Sim{\~a}o, Jos{\'e} and Veiga, Lu{\'\i}s},
+  title = {{Adaptability driven by quality of execution in high level virtual
+           machines for shared cloud environments}},
+  year = {2013},
+  issue_date = {November 2013},
+  publisher = {CRL Publishing Ltd},
+  volume = {28},
+  number = {6},
+  journal = {International Journal of Computer Systems Science \& Engineering},
+  month = nov,
+  articleno = {1},
+  pages = {59--72},
+  numpages = {14},
+}
+
+@inproceedings{singer:economics,
+  author = {Singer, Jeremy and Jones, Richard E. and Brown, Gavin and Luj\'{a}n,
+            Mikel},
+  title = {{The Economics of Garbage Collection}},
+  year = {2010},
+  isbn = {9781450300544},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1806651.1806669},
+  doi = {10.1145/1806651.1806669},
+  booktitle = {Proceedings of the 2010 International Symposium on Memory
+               Management},
+  pages = {103--112},
+  numpages = {10},
+  location = {Toronto, Ontario, Canada},
+  series = {ISMM '10},
+}
+
+@misc{spark:guidelines,
+  author = {{Apache Spark}},
+  title = {Hardware Provisioning - {Spark} 4.0.1 Documentation},
+  howpublished = {\url{
+                  https://spark.apache.org/docs/latest/hardware-provisioning.html
+                  }},
+  year = {2025},
+  note = {Accessed: April 2026},
+}
+
+@inproceedings{storm:db2,
+  author = {Storm, Adam J. and Garcia-Arellano, Christian and Lightstone, Sam S.
+            and Diao, Yixin and Surendra, M.},
+  title = {{Adaptive Self-tuning Memory in DB2}},
+  year = {2006},
+  publisher = {VLDB Endowment},
+  booktitle = {Proceedings of the 32nd International Conference on Very Large
+               Data Bases},
+  pages = {1081--1092},
+  numpages = {12},
+  address = {Los Angeles, CA, USA},
+  location = {Seoul, Korea},
+  series = {VLDB '06},
+}
+
+@inproceedings{sun:multi_space_heap,
+  author = {Sun, Kewei and Li, Ying and Hogstrom, Matt and Chen, Ying},
+  title = {{Sizing Multi-space in Heap for Application Isolation}},
+  year = {2006},
+  isbn = {159593491X},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1176617.1176654},
+  doi = {10.1145/1176617.1176654},
+  booktitle = {Companion to the 21st ACM SIGPLAN Symposium on Object-Oriented
+               Programming Systems, Languages, and Applications},
+  pages = {647--648},
+  numpages = {2},
+  location = {Portland, Oregon, USA},
+  series = {OOPSLA '06},
+}
+
+@inproceedings{tay:page_fault,
+  author = {Tay, Y.C. and Zong, X.R.},
+  title = {{A Page Fault Equation for Dynamic Heap Sizing}},
+  year = {2010},
+  isbn = {9781605585635},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1712605.1712636},
+  doi = {10.1145/1712605.1712636},
+  booktitle = {Proceedings of the First Joint WOSP/SIPEW International
+               Conference on Performance Engineering},
+  pages = {201--206},
+  numpages = {6},
+  location = {San Jose, California, USA},
+  series = {WOSP/SIPEW '10},
+}
+
+@inproceedings{vengerov:gc_analysis,
+  author = {Vengerov, David},
+  title = {{Modeling, Analysis and Throughput Optimization of a Generational
+           Garbage Collector}},
+  year = {2009},
+  isbn = {9781605583471},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1542431.1542433},
+  doi = {10.1145/1542431.1542433},
+  booktitle = {Proceedings of the 2009 International Symposium on Memory
+               Management},
+  pages = {1--9},
+  numpages = {9},
+  location = {Dublin, Ireland},
+  series = {ISMM '09},
+}
+
+@inproceedings{wang:elasticMem,
+  author = {Jingjing Wang and Magdalena Balazinska},
+  title = {{Elastic Memory Management for Cloud Data Analytics}},
+  year = {2017},
+  isbn = {978-1-931971-38-6},
+  publisher = {USENIX Association},
+  address = {Berkeley, CA, USA},
+  booktitle = {Proceedings of the 2017 USENIX Conference on Usenix Annual
+               Technical Conference},
+  pages = {745--758},
+  url = {
+         https://www.usenix.org/conference/atc17/technical-sessions/presentation/wang
+         },
+  month = jul,
+  series = {USENIX ATC '17},
+  location = {Santa Clara, CA, USA},
+}
+
+@inproceedings{white:pid,
+  author = {White, David R. and Singer, Jeremy and Aitken, Jonathan M. and Jones
+            , Richard E.},
+  title = {{Control Theory for Principled Heap Sizing}},
+  year = {2018},
+  isbn = {9781450321006},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/2464157.2466481},
+  doi = {10.1145/2464157.2466481},
+  booktitle = {Proceedings of the 2013 International Symposium on Memory
+               Management},
+  pages = {27--38},
+  numpages = {12},
+  location = {Seattle, Washington, USA},
+  series = {ISMM '13},
+}
+
+@inproceedings{yang:real_mem,
+  author = {Yang, Ting and Hertz, Matthew and Berger, Emery D. and Kaplan, Scott
+            F. and Moss, J. Eliot B.},
+  title = {{Automatic Heap Sizing: Taking Real Memory into Account}},
+  year = {2004},
+  isbn = {1581139454},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1029873.1029881},
+  doi = {10.1145/1029873.1029881},
+  booktitle = {Proceedings of the 4th International Symposium on Memory
+               Management},
+  pages = {61--72},
+  numpages = {12},
+  location = {Vancouver, BC, Canada},
+  series = {ISMM '04},
+}
+
+@inproceedings{zgc:heap_resize,
+  author = {Tavakolisomeh, Sanaz and Shimchenko, Marina and \"{O}sterlund, Erik
+            and Bruno, Rodrigo and Ferreira, Paulo and Wrigstad, Tobias},
+  title = {{Heap Size Adjustment with CPU Control}},
+  year = {2023},
+  isbn = {9798400703805},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/3617651.3622988},
+  doi = {10.1145/3617651.3622988},
+  booktitle = {Proceedings of the 20th ACM SIGPLAN International Conference on
+               Managed Programming Languages and Runtimes},
+  pages = {114--128},
+  numpages = {15},
+  location = {Cascais, Portugal},
+  series = {MPLR '23},
+}
+
+@inproceedings{zhang:pamm,
+  author = {Zhang, Chengliang and Kelsey, Kirk and Shen, Xipeng and Ding, Chen
+            and Hertz, Matthew and Ogihara, Mitsunori},
+  title = {{Program-Level Adaptive Memory Management}},
+  year = {2006},
+  isbn = {1595932216},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/1133956.1133979},
+  doi = {10.1145/1133956.1133979},
+  booktitle = {Proceedings of the 5th International Symposium on Memory
+               Management},
+  pages = {174--183},
+  numpages = {10},
+  location = {Ottawa, Ontario, Canada},
+  series = {ISMM '06},
 }

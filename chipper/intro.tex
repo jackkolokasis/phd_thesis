@@ -1,0 +1,75 @@
+\section{Introduction}
+
+Latency-sensitive services such as key-value stores~\cite{lakshman:cassandra,vohra:hbase, santos:infinispan}, search engines~\cite{mccandless:lucene,elastic_search,solr,opensearch}, and streaming analytics frameworks~\cite{zaharia:spark, friedman:flink} are widely deployed on the Java Virtual Machine (JVM).
+Such services use two key mechanisms to keep response times low: (1) low-pause garbage collectors and (2) result caches.
+Low-pause garbage collectors~\cite{detlefs:g1,yang:zgc,flood:shenandoah} perform collection work incrementally and concurrently to keep application stop-the-world (STW) pauses short and predictable.
+Result caches retain previously computed, intermediate or final, results and data, to avoid significant recomputation for future requests~\cite{nishtala:memcache}.
+Although large result caches avoid expensive recomputation, they require large amounts of DRAM for the JVM heap.
+In addition to increasing DRAM cost, large heaps increase garbage collection (GC) overhead as the collector must manage a large number of long-lived heap objects~\cite{mitchel:bloat, teraheap}.
+
+To reduce GC overhead, popular frameworks~\cite{lakshman:cassandra,vohra:hbase,zaharia:spark} move the result cache in a region of memory outside the JVM heap (off-heap).
+Unfortunately, off-heap caches introduce significant serialization and deserialization (S/D) overhead.
+Applications can avoid this overhead by laying out cached objects manually with Unsafe~\cite{jep471} or the Foreign Function and Memory API~\cite{jep454}, requiring developers to manage layout and lifetime by hand for each cached type.
+Prior work~\cite{wang:bridgegc,khanh:yak,gog:broom,lu:deca,bruno:n2gc} has tried to mitigate these costs by introducing annotations for long-lived cache objects and allowing the garbage collector to skip scanning them.
+Although these approaches reduce GC cost, the cache still resides in DRAM, whose capacity is limited and whose cost per gigabyte is high and rising as demand grows~\cite{damon, zombieland, tirmazi:borg, weiner:tmo}.
+
+For this reason, modern frameworks~\cite{vohra:hbase,zaharia:spark, opensearch:tiered-cache} extend the result cache beyond physical DRAM (off-memory), to a higher-capacity tier, such as NVMe SSDs.
+This off-memory approach introduces I/O, but it has the potential to further reduce recomputation due to the increasing density and capacity of NVMe SSDs~\cite{apapag:fmap,apapag:aquila}.
+Yet off-memory approaches also incur significant object S/D on every access, increasing application latency.
+Recent efforts~\cite{kolokasis:teracache, kolokasis:teraheap_toplas,teraheap,bond:melt,leaksurvivor} extend throughput-oriented collectors to provide a unified heap that spans both DRAM and storage, eliminating S/D cost and reducing GC overhead by avoiding scans over storage.
+However, throughput-oriented collectors introduce long and unpredictable pauses that hurt latency-sensitive services.
+As these services rely on low-pause collectors, no existing storage-backed heap meets their needs.
+We quantify the limitations of existing approaches in \S\ref{chipper:sec:motiv}.
+
+In this paper, we propose \chipperName{}, the first storage-backed heap for low-pause garbage collectors.
+\chipperName{} enables large result caches for latency-sensitive applications by extending a low-pause collector with two region-based heaps: the collector's heap in DRAM (DH) and a second heap memory-mapped over an NVMe SSD (SH).
+Frameworks label root cache objects in DH and \chipperName{} propagates each label to the root's transitive closure.
+These labels identify the DH objects to migrate and guide their grouping in SH regions.
+\chipperName{} excludes SH from GC scans while preserving the short, predictable pauses these collectors are designed to provide.
+Our design addresses the following three main challenges.
+
+% In this paper, we propose \chipperName{}, the first storage-backed heap for low-pause
+% garbage collectors, enabling large result caches for latency-sensitive
+% applications. \chipperName{} extends G1, the default low-pause garbage collector in
+% OpenJDK, to use two heaps: a primary region-based heap (H1) in DRAM and a
+% secondary region-based, memory-mapped heap (H2) over an NVMe SSD. \chipperName{}
+% migrates result-cache objects from H1 to H2 and excludes H2 from GC scans, while
+% preserving the short, predictable pauses G1 is built to provide. Realizing this
+% in a low-pause collector poses three main challenges.
+
+\paragraph{\textbf{Bounding SH migration within the GC work budget.}}
+Migrating objects from DH to SH requires storage I/O on a page-cache miss, making it more expensive than ordinary evacuation within DH.
+Low-pause collectors bound the amount of evacuation work performed by each incremental GC using a GC work budget.
+SH migration changes both the amount of DH space reclaimed from a region and the evacuation work required to reclaim that DH space.
+Ignoring the additional evacuation work can cause the collector to exceed the GC work budget, while migrating too few SH candidates can reclaim DH space too slowly.
+\chipperName{} therefore makes region selection aware of both the additional DH space reclaimed by SH migration and the corresponding evacuation work, allowing SH migration to proceed across incremental GCs while respecting the GC work budget.
+
+\paragraph{\textbf{Scaling parallel evacuation across multiple SH regions.}}
+Low-pause collectors scale parallel evacuation by maintaining local or partitioned allocation state per GC thread for the current DH target region.
+When the target region fills, evacuation switches to another region.
+SH differs because object placement depends on the cache label, so different labels can keep multiple SH regions active simultaneously.
+Maintaining per-thread allocation state for every active SH region would make DRAM metadata grow with the product of GC threads and active SH regions.
+\chipperName{} instead associates an allocation lock with each label-to-region mapping, allowing GC threads targeting different SH regions to evacuate objects in parallel without maintaining per-thread allocation state for every active SH region.
+
+\paragraph{\textbf{Migrating large objects to SH to relieve DH pressure.}}
+Low-pause collectors do not evacuate large objects during incremental GCs because copying a large object may require more work than the GC work budget allows.
+Large SH candidates may therefore remain in DH and continue consuming DRAM even after being selected for SH migration.
+\chipperName{} must migrate these objects outside incremental GCs.
+When incremental GCs cannot maintain sufficient free heap space, \chipperName{} integrates the migration of large SH candidates with the collector's existing mechanism for relieving memory pressure.
+
+We implement \chipperName{} in G1~\cite{detlefs:g1}, the default garbage collector of OpenJDK.
+Our implementation uses OpenJDK~17, a long-term support release.
+We evaluate \chipperName{} across four classes of latency-sensitive systems: search engines with OpenSearch~\cite{opensearch}, search libraries with Lucene~\cite{mccandless:lucene}, which underlies many modern search engines, key-value stores with HBase~\cite{vohra:hbase}, and stream-processing frameworks with Spark~\cite{zaharia:spark}.
+For each system, we compare \chipperName{} against three baselines: a limited on-heap cache managed by G1, an off-heap cache backed by a storage device, and TeraHeap~\cite{teraheap}, a state-of-the-art storage-backed heap.
+Our evaluation shows that \chipperName{} achieves up to $161\times$ lower P99 latency than DRAM-limited on-heap caches, $34\times$ lower than storage-backed off-heap caches, and $9\times$ lower than TeraHeap.
+
+Overall, this paper makes the following contributions:
+
+\begin{itemize}
+	\item We show that existing approaches to scaling result caches either remain limited by DRAM capacity or introduce overheads that affect application tail latency.
+
+	\item We present \chipperName{}, the first storage-backed heap for low-pause garbage collectors, which migrates objects to storage within the GC work budget, reduces migration overhead through parallel evacuation, and handles large objects through a separate migration path.
+
+	\item We evaluate \chipperName{} on widely used latency-sensitive workloads and show that it provides low tail latency compared with DRAM-constrained on-heap caches, storage-backed off-heap caches, and existing storage-backed heaps.
+
+\end{itemize}

@@ -1,0 +1,44 @@
+\section{Related Work}
+
+\paragraph{\textbf{Reducing GC overhead for DRAM-backed managed heaps.}}
+Prior work reduces GC overhead through alternative object representations, lifetime-based placement, and profiling while keeping data in DRAM.
+Facade~\cite{nguyen:facade} moves application data off-heap and keeps only a small number of managed proxy objects on the Java heap, while Gerenuk~\cite{navasca:gerenuk} transforms code to operate directly on inlined off-heap representations.
+Broom~\cite{gog:broom} groups objects with similar lifetimes into regions that can be reclaimed together.
+DSA~\cite{cohen:dsa} uses programmer annotations to identify data-structure nodes, allocates them in a separate heap area, and treats them as roots to improve tracing locality and parallelism.
+Yak~\cite{khanh:yak} allocates data objects by programmer-defined epochs, while Deca~\cite{lu:deca} exploits object lifetimes to reduce memory-management overhead in Spark.
+BridgeGC~\cite{wang:bridgegc} uses framework-level annotations to identify long-lived data objects and avoids repeatedly tracing and copying them until the framework signals their release.
+NG2C~\cite{bruno:n2gc} uses runtime profiling to identify and pre-tenure long-lived objects, while other work relies on offline allocation-site profiling~\cite{pretenuring,Blackburn:2001:PJ}.
+These approaches reduce GC overhead without extending the managed heap beyond DRAM, whereas \chipperName{} uses storage to increase managed-heap capacity while retaining low-pause collection.
+
+\paragraph{\textbf{Managed heaps over local storage.}}
+Prior work uses secondary storage to reduce the DRAM footprint of managed applications.
+LOOM~\cite{kaehler:loom} extends object memory across DRAM and secondary storage.
+Abdelrahman and Pande~\cite{abdelrahman:memorygc}, Melt~\cite{bond:melt}, and LeakSurvivor~\cite{leaksurvivor} move cold or stale reachable objects to disk and restore them when accessed.
+These systems rely on infrequent accesses, whereas \chipperName{} targets large caches whose storage-resident objects remain actively accessed.
+Other work reduces GC-induced paging without extending the managed heap.
+Bookmarking collection~\cite{hertz:bookmarking} records references from evicted pages so that GC need not fault them back into DRAM, while CRAMM~\cite{yang:cramm} adjusts heap size under memory pressure.
+FlexHeap~\cite{kolokasis:flexheap} dynamically resizes the managed heap based on I/O demand, balancing DRAM between the heap and the OS page cache.
+This mechanism is complementary to \chipperName{} and could dynamically divide available DRAM between DH and the page cache used for SH.
+TMO~\cite{weiner:tmo} moves cold pages to slower tiers, including NVMe SSDs, below the JVM and therefore without object-level GC knowledge.
+TeraCache~\cite{kolokasis:teracache} and TeraHeap~\cite{teraheap} are closest to \chipperName{}.
+They place managed objects on NVMe storage and exclude storage-resident objects from GC scans.
+However, they integrate storage with throughput-oriented collection rather than the bounded work and parallel evacuation of low-pause collectors.
+\chipperName{} instead integrates a storage-backed managed heap with low-pause garbage collectors.
+
+\paragraph{\textbf{Managed heaps over byte-addressable NVM and remote memory.}}
+Previous work~\cite{akram:ration,akram:crystal,gcmove,thingc} reduces NVM writes by placing objects according to their access or write hotness.
+NVM-friendly-GC~\cite{Xu:gc_evaluation} optimizes G1 for an NVM-resident heap, while Panthera~\cite{wang:Panthera} and JPDHeap~\cite{jpd_heap} place managed objects across DRAM and NVM.
+These systems assume byte-addressable NVM and allow GC to traverse NVM-resident objects.
+Remote-memory systems instead address GC over disaggregated heaps.
+MemLiner~\cite{wang:memliner} improves far-memory locality by aligning GC and mutator access patterns, while Semeru~\cite{wang:semeru} and Mako~\cite{ma:mako} offload GC work to memory servers.
+SmartSweep~\cite{kolokasis:smartsweep} avoids scanning remote regions and returns garbage-rich regions to local memory for reclamation.
+DGC~\cite{hongtao:dgc} offloads concurrent marking to a remote GC service over RDMA.
+These systems rely on byte-addressable NVM or remote DRAM, which offer lower capacity per device than local NVMe SSDs and are therefore less suited to large result caches.
+
+\paragraph{\textbf{Reducing S/D overhead.}}
+A large body of work reduces the cost of converting managed objects to and from external representations.
+General-purpose libraries, including Thrift, Kryo, and Protocol Buffers~\cite{thrift,kryo,protocol-buffers}, provide efficient serialization formats and implementations.
+Some systems avoid conventional S/D by changing how objects are transferred. Skyway~\cite{nguyen:skyway} transfers object graphs directly between managed heaps. Naos~\cite{taranov:naos} bypasses S/D when transferring Java objects over RDMA, while ZCOT~\cite{wu:zero_change} directly copies objects between JVMs without converting them to an external representation.
+SSDStreamer~\cite{ssdstreamer} targets SSD-backed caching and reduces S/D overhead with a lightweight serializer and a stream-oriented I/O path.
+Complementary work accelerates S/D with specialized hardware~\cite{jang:arch,pourhabibi:optimus} or reduces object copies during serialization and data transfer~\cite{matei:champions, ibanez:zerializer}. These techniques reduce S/D and copying overhead, but often require application changes to use a separate representation or data-movement path.
+\chipperName{} instead keeps cached objects managed when they move to storage, avoiding S/D on cache accesses without exposing a separate storage path to the application.
