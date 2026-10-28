@@ -1,20 +1,33 @@
-
-\chapter{Conclusion}
+\chapter{Conclusions}
 \label{chapter:conclusion}
 
+This dissertation proposes storage-backed heaps to extend the caches of data-intensive JVM applications beyond DRAM while preserving direct access to Java objects.
+By retaining the managed object representation on storage, this approach avoids the serialization and deserialization required by many off-heap caches.
+Our work shows that fast storage can provide additional cache capacity for both throughput-oriented and latency-sensitive applications when heap management accounts for the cost of accessing and moving storage-resident objects.
 
-\section{Synopsis of Contributions}
+Extending the heap to storage introduces challenges that conventional memory-management policies do not adequately address.
+Scanning and compacting objects on storage can generate expensive I/O during garbage collection (GC).
+For low-pause collectors, migration also changes the amount of work required to evacuate a region and must be considered when scheduling collection work.
+Furthermore, the DRAM heap competes with the operating-system page cache for physical memory.
+Increasing the heap can reduce GC overhead while leaving less memory to cache storage accesses, potentially increasing application I/O stalls.
 
-In this thesis, ...
+We address these challenges through three complementary contributions.
+First, we design a heap architecture that combines a DRAM heap with a second heap memory-mapped over fast storage for throughput-oriented applications.
+Framework hints guide the placement of cached objects, while reference tracking and region-level reclamation allow the collector to manage storage space without repeatedly traversing all storage-resident objects.
+Reclaiming whole regions trades reclamation precision for lower GC-related I/O.
+The evaluation shows that this approach reduces execution time in the studied analytics and graph-processing workloads by reducing memory pressure, GC overhead, and data-conversion costs.
 
+Next, we adapt storage-backed heap management to low-pause collection for latency-sensitive applications.
+Our design makes region selection account for both the DRAM space released by migration and the different costs of evacuating objects to DRAM and storage.
+It integrates migration into parallel evacuation and provides a separate path for large objects that are not moved during incremental collections.
+The evaluation demonstrates lower tail latency than DRAM-limited on-heap caches, storage-backed off-heap caches, and the throughput-oriented storage-backed design in the studied workloads.
+These findings show that extending managed caches beyond DRAM requires migration policies suited to the collector's pause-time goals.
 
+Finally, we develop an I/O-aware mechanism that dynamically adjusts the JVM heap within a fixed DRAM budget.
+The mechanism estimates CPU time lost to GC and I/O stalls and uses their combined cost to guide resizing decisions.
+Our evaluation shows that accounting for I/O demand improves performance in the studied search and analytics workloads compared with policies focused on GC overhead.
+This mechanism addresses a broader memory-allocation problem and can complement storage-backed heaps by adapting the balance between the DRAM heap and the page cache as application demands change.
 
-
-
-
-
-
-\section{Directions for Future Work and Research}
-
-There are several aspects that are worth further work and
-research....
+Together, these contributions demonstrate the benefits of managing heap capacity, collection work, and DRAM allocation with awareness of storage costs.
+Preserving direct object access and reducing unnecessary GC I/O make storage-backed caches useful across different application requirements, while I/O-aware heap sizing addresses competition for physical memory.
+The resulting design principle is that managed runtimes should account for both the cost of maintaining objects and the cost of accessing their data when deciding where objects reside, when they move, and how DRAM is allocated.
