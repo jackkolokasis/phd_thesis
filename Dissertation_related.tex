@@ -132,11 +132,3 @@ Symbiosis~\cite{dai:symbiosis} dynamically configures the size of user-space blo
 Unlike these systems, \flexheapName{} focuses on the dynamic DRAM division between the JVM heap and I/O cache without application knowledge or offline profiling.
 %
 Also, \flexheapName{} could be applicable for systems~\cite{khanh:polar,teraheap,kolokasis:teracache,kolokasis:teraheap_toplas,kolokasis:smartsweep} that use I/O cache to extend the JVM heap over slower memory tiers, such as fast storage devices or remote memory.
-
-\section{Positioning of This Dissertation}
-
-The related work exposes three distinct system problems.
-TeraHeap increases managed-heap capacity for throughput-oriented applications while limiting collection work over storage.
-Chipper extends storage-backed heaps to G1 and accounts for migration cost within incremental, pause-bounded collection.
-FlexHeap addresses a complementary resource-allocation problem by balancing JVM heap capacity against the OS page cache according to GC and I/O costs.
-Together, these contributions study storage capacity, collector policy, and DRAM allocation as related but separate design dimensions.
