@@ -1,33 +1,31 @@
 \chapter{Conclusions}
 \label{chapter:conclusion}
 
-This dissertation proposes storage-backed heaps to extend the caches of data-intensive JVM applications beyond DRAM while preserving direct access to Java objects.
-By retaining the managed object representation on storage, this approach avoids the serialization and deserialization required by many off-heap caches.
-Our work shows that fast storage can provide additional cache capacity for both throughput-oriented and latency-sensitive applications when heap management accounts for the cost of accessing and moving storage-resident objects.
+This dissertation investigates how to address DRAM capacity limitations and improve DRAM utilization in data-intensive JVM applications.
+We demonstrate how storage-backed managed heaps can extend heap capacity beyond DRAM while reducing serialization and deserialization (S/D) overhead and expensive garbage collection (GC) operations over storage.
+We further show how I/O-aware dynamic heap resizing can improve DRAM utilization by balancing GC overhead against the cost of accessing data through the operating system (OS) page cache.
+Together, these contributions address three complementary challenges: managing storage-resident objects without full GC scans, supporting object migration in low-pause collectors, and dynamically allocating DRAM between the JVM heap and the I/O cache.
 
-Extending the heap to storage introduces challenges that conventional memory-management policies do not adequately address.
-Scanning and compacting objects on storage can generate expensive I/O during garbage collection (GC).
-For low-pause collectors, migration also changes the amount of work required to evacuate a region and must be considered when scheduling collection work.
-Furthermore, the DRAM heap competes with the operating-system page cache for physical memory.
-Increasing the heap can reduce GC overhead while leaving less memory to cache storage accesses, potentially increasing application I/O stalls.
+First, we introduce TeraHeap, a storage-backed heap for throughput-oriented applications that combines a DRAM heap (DH) with a region-based storage-backed heap (SH) memory-mapped over fast storage.
+TeraHeap preserves direct access to Java objects without S/D and uses framework hints to identify objects suitable for migration to SH.
+To avoid expensive GC operations over storage, it tracks cross-heap references and dependencies among SH regions, allowing the collector to manage storage-resident objects without scanning the entire SH.
+Region-level reclamation further reduces GC-induced I/O by avoiding object compaction on storage, trading additional storage capacity for lower reclamation overhead.
+Our evaluation demonstrates that TeraHeap improves application performance in the studied analytics and graph-processing workloads by reducing memory pressure, GC overhead, and data-conversion costs.
 
-We address these challenges through three complementary contributions.
-First, we design a heap architecture that combines a DRAM heap with a second heap memory-mapped over fast storage for throughput-oriented applications.
-Framework hints guide the placement of cached objects, while reference tracking and region-level reclamation allow the collector to manage storage space without repeatedly traversing all storage-resident objects.
-Reclaiming whole regions trades reclamation precision for lower GC-related I/O.
-The evaluation shows that this approach reduces execution time in the studied analytics and graph-processing workloads by reducing memory pressure, GC overhead, and data-conversion costs.
+Next, we introduce Chipper, which extends storage-backed heap management to low-pause garbage collectors and latency-sensitive applications.
+Unlike throughput-oriented collection, low-pause collection must account for the additional cost of migrating live objects to storage when selecting regions for incremental GC.
+Chipper extends the collector's region-selection model to consider both migration costs and the DRAM recovered through garbage reclamation and object migration.
+It further integrates migration into parallel evacuation and provides a separate path for migrating large objects during full GC.
+Our evaluation demonstrates that these mechanisms reduce application tail latency compared with DRAM-limited on-heap caches, storage-backed off-heap caches, and the throughput-oriented storage-backed design in the studied workloads.
+These results show that extending managed heap capacity beyond DRAM in latency-sensitive applications requires storage-aware migration policies that account for the collector's pause-time constraints.
 
-Next, we adapt storage-backed heap management to low-pause collection for latency-sensitive applications.
-Our design makes region selection account for both the DRAM space released by migration and the different costs of evacuating objects to DRAM and storage.
-It integrates migration into parallel evacuation and provides a separate path for large objects that are not moved during incremental collections.
-The evaluation demonstrates lower tail latency than DRAM-limited on-heap caches, storage-backed off-heap caches, and the throughput-oriented storage-backed design in the studied workloads.
-These findings show that extending managed caches beyond DRAM requires migration policies suited to the collector's pause-time goals.
+Finally, we introduce FlexHeap, an I/O-aware dynamic heap-resizing mechanism that improves DRAM utilization by adapting the division of physical memory between the JVM heap and the I/O cache.
+FlexHeap estimates the time lost to GC and I/O stalls and uses their combined cost to determine when and by how much to resize the JVM heap.
+By accounting for both costs, FlexHeap adapts to changes in application memory and I/O demands rather than relying solely on GC-driven resizing decisions.
+Our evaluation demonstrates performance improvements in the studied search and analytics workloads compared with existing heap-resizing policies.
+Although FlexHeap does not require a storage-backed managed heap, it provides a complementary approach to improving DRAM utilization that could also benefit storage-backed heap designs.
 
-Finally, we develop an I/O-aware mechanism that dynamically adjusts the JVM heap within a fixed DRAM budget.
-The mechanism estimates CPU time lost to GC and I/O stalls and uses their combined cost to guide resizing decisions.
-Our evaluation shows that accounting for I/O demand improves performance in the studied search and analytics workloads compared with policies focused on GC overhead.
-This mechanism addresses a broader memory-allocation problem and can complement storage-backed heaps by adapting the balance between the DRAM heap and the page cache as application demands change.
-
-Together, these contributions demonstrate the benefits of managing heap capacity, collection work, and DRAM allocation with awareness of storage costs.
-Preserving direct object access and reducing unnecessary GC I/O make storage-backed caches useful across different application requirements, while I/O-aware heap sizing addresses competition for physical memory.
-The resulting design principle is that managed runtimes should account for both the cost of maintaining objects and the cost of accessing their data when deciding where objects reside, when they move, and how DRAM is allocated.
+Together, these contributions demonstrate that efficient JVM memory management requires addressing both managed heap capacity and the utilization of available DRAM.
+TeraHeap and Chipper show that extending the managed heap to storage requires controlling GC-induced I/O and adapting object migration to different collection objectives.
+FlexHeap shows that managing DRAM effectively also requires considering the interaction between GC overhead and storage I/O rather than optimizing GC in isolation.
+The broader insight of this dissertation is that managed runtimes should account for storage-access and data-movement costs when deciding where objects reside, how they are collected, and how physical memory is allocated.
