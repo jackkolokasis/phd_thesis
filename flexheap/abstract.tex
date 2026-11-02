@@ -1,4 +1,4 @@
-\section*{Chapter Summary}
+\section{Summary}
 In this chapter, we propose \flexheapName{}, a heap resizing mechanism for Garbage First (G1), the default OpenJDK garbage collector, that dynamically partitions a fixed DRAM budget between the JVM heap and the I/O cache.
 Between GC intervals, it estimates the CPU time lost to GC and to I/O stalls and repartitions DRAM to reduce their combined cost.
 \flexheapName{} relies on three concepts:

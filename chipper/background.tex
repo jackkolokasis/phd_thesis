@@ -8,7 +8,7 @@ They limit the latency that GC adds to the application through three properties 
 \paragraph{\textbf{Bounding GC work}}
 Low-pause collectors partition the heap into independently reclaimable units.
 G1 and Shenandoah use fixed-size regions, whereas ZGC uses small, medium, and large pages.
-We use the term \emph{region} for all such units throughout the paper.
+We use the term \emph{region} for all such units throughout the chapter.
 Instead of reclaiming the entire heap in one GC, the collector selects a subset of regions and evacuates their live objects into empty regions, which we call an \emph{incremental GC}.
 Each collector bounds the evacuation work of an incremental GC, and we call this bound the \emph{GC work budget}.
 G1 derives the budget from a pause-time target, whereas Shenandoah and ZGC must complete evacuation before allocation exhausts the free heap space.
