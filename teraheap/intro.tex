@@ -1,5 +1,5 @@
 
-In this article, we propose \teraheapName{}, a system that eliminates \teraheapSD and \teraheapGC overheads for a large portion of the data in managed big data analytics frameworks.
+In this chapter, we propose \teraheapName{}, a system that eliminates \teraheapSD and \teraheapGC overheads for a large portion of the data in managed big data analytics frameworks.
 \teraheapName{} extends the Java virtual machine (JVM) to use a second, high-capacity heap (H2) over a fast storage device that coexists alongside the regular heap (H1).
 It eliminates \teraheapSD by providing direct access to objects in H2 and reduces \teraheapGC by avoiding costly \teraheapGC scans over objects in H2.
 Frameworks use \teraheapName{} through its hint-based interface without modifications to the applications that run on top of them.

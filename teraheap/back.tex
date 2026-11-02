@@ -1,31 +1,256 @@
-\section{Motivation: Serialization and Garbage-Collection Costs}
+\section{Background and Motivation}
 
-As datasets grow beyond available DRAM, frameworks may offload cached objects to storage.
-This reduces the amount of data held in the managed heap, but introduces serialization and deserialization (S/D) work.
-A large managed heap avoids some S/D work, but may increase GC work.
-This tradeoff is illustrated with two Spark workloads, Linear Regression (LR) and Logistic Regression (LgR), which represent data aggregation and iterative computation, respectively.
-Spark caches intermediate results to avoid recomputation across stages.
+This section provides background on \teraheapGC in Java runtimes and \teraheapSD of managed objects.
+We also discuss the tradeoff between storing serialized objects in off-heap memory and \teraheapGC overheads due to a large heap.
+%and explains the limitations of existing work.
 
-For this investigation, we vary the portion of heap allocated to execution and on-heap cache.
-Spark divides the available heap between memory required for task execution and on-heap memory for cached intermediate results.
-The parameter $F=C/H$ specifies the fraction of the heap used as an on-heap cache, where $C$ is cache capacity and $H$ is heap capacity.
-$F$ is a soft boundary between zero and one, and either function can use more than its share when the other function does not use its partition.
+\paragraph{\textbf{Garbage Collection:}}
+Modern collectors exploit the generational hypothesis that many objects die young.
+For this reason, they divide the managed heap into a young generation for new objects and an old generation for objects that survive multiple young (minor) collections~\cite{Ungar:1984:GSN}.
+They further divide the young generation into an eden space and two survivor spaces, called \emph{from-space} and \emph{to-space}.
+Application (mutator) threads allocate new objects into the eden space.
+When the eden space becomes full, garbage collectors perform a minor \teraheapGC.
+During minor \teraheapGC, the garbage collector identifies live objects in the eden space and from-space.
+Then, it moves live objects to the to-space and the mature objects to the old generation.
+When the managed heap becomes full, the JVM performs a full (major) \teraheapGC, which scans and compacts objects in both old and young generations.
+
+Although JVMs are typically used with only DRAM-resident managed heaps, today, they can allocate either the entire heap or the old generation over a storage device (e.g., NVMe SSD) using memory-mapped I/O (e.g., Linux \emph{mmap}).
+Applications perform load/store operations for objects that now reside on SSD.
+These load/store operations go to DRAM and generate page faults.
+The kernel (mmap path) then moves data between DRAM and SSD using block operations, transparently to application code.
+However, existing garbage collectors are designed for DRAM-backed heaps and incur significant overhead for storage-backed heaps~\cite{nvm-gc-eurosys}.
+DRAM is byte addressable and provides low latency and high throughput regardless of operation types (read/write) and access patterns (random/sequential).
+On the other hand, fast-storage devices (e.g., NVMe SSDs) can only be accessed in page granularity.
+Page granularity accesses cause a significant increase in I/O traffic by transferring the entire page even if only a small portion of that page is required, resulting in a performance penalty~\cite{flatflash, apapag:fmap}.
+
+\paragraph{\textbf{Object Serialization:}}
+Java serialization enables the conversion of a memory-resident object into a form that is convenient for storing it off-heap (memory, storage, or network) and can even be shared across JVMs.
+\emph{Serialization} transforms Java objects in the managed heap into a byte stream, and \emph{deserialization} reconstructs the Java objects from byte streams into heap representations (with references).
+During \teraheapSD, the serializer traverses the object graph to identify all objects that need to be serialized, starting from the root object selected for off-heap placement.
+
+Java serialization is a complex process that introduces four significant limitations and overheads during execution.
+First, when serializing an object, the serializer omits fields marked with the \emph{transient} modifier.
+Transient fields are initialized to a default value during deserialization based on the serializer implementation.
+Thus, serialization limits the objects that can be moved off-heap, as it requires self-contained entities without references to and from the managed heap, i.e., only serializable objects~\cite{grochowski2019serialization, niemeyer2005learning, harold2006java}.
+Second, extracting and recreating the object state requires mechanisms that bypass constructors and ignore class and field accessibility.
+Third, performance-wise, traversing the object graph requires effort proportional to the volume of objects in the transitive closure of the root object.
+Fourth and most relevant to our work, \teraheapSD generates many temporary objects while transforming objects into byte streams and vice-versa.
+Temporary objects put more pressure on the heap and lead to more frequent \teraheapGC cycles.
+Recent work identifies \teraheapSD as a significant performance bottleneck in big data analytics frameworks~\cite{navasca:gerenuk, nguyen:skyway, matei:champions, taranov:naos}.
+
+\subsection{Tradeoff between \teraheapSD and \teraheapGC Overheads}
+
+The datasets that applications need to process are growing continuously.
+However, the expectation is that only a small percentage of data fits in memory.
+Therefore, in such cases, frameworks offload objects off-heap over a fast storage device.
+On the one hand, serializing objects and moving them in off-heap memory reduces the heap requirements.
+However, it results in excessive \teraheapSD overhead.
+On the other hand, using a large managed heap to avoid \teraheapSD costs increases the \teraheapGC overhead.
+Therefore, today, frameworks pay the overhead from \teraheapSD or \teraheapGC.
+To show this tradeoff quantitatively, we demonstrate how Spark copes with large datasets by presenting experimental results from two representative Spark applications, Linear Regression (LR), and Logistic Regression (LgR).
+The two applications are representative of two popular computational patterns: data aggregation with varying space demands and iterative computations.
+Spark provides a compute cache and application written on top of Spark benefit from caching large amounts of intermediate results.
+
+%(1) They cover different domains, such as
+%machine learning and graph analysis. (2) They have various
+%computational patterns, such as data aggregation with different space
+%demands and iterative computations that cache many intermediate
+%results. (3) They have diverse memory usage patterns, such as
+%long-lived and temporary objects.
+
+For our investigation, we vary the portion of memory (heap) allocated for execution and on-heap cache to investigate the effect on performance.
+Spark divides the available heap into memory required for task execution and on-heap memory for cached intermediate results.
+To determine the size of execution and on-heap cache memory for a given heap size, Spark uses F, a tunable parameter defined as the portion of the heap to be used as an on-heap cache ($F=C/H$).
+F is a soft boundary and varies between 0 and 1.
+The two functions, caching and execution, can exceed their share if the other function does not fully utilize its partition.
+We explore several values for F.
 
 \begin{figure}[t]
-  \centering
-  \includegraphics[width=0.2\linewidth]{teraheap/fig/gc_serdes_leg-crop.pdf}
-  \\
-  \vspace{-8pt}
-  \subfloat[Linear Regression]{\includegraphics[width=0.3\linewidth]{teraheap/fig/lr_gc_serdes_line-crop.pdf}}
-  \hspace{10pt}
-  \subfloat[Logistic Regression]{\includegraphics[width=0.3\linewidth]{teraheap/fig/lgr_gc_serdes_line-crop.pdf}}
-  \caption{Tradeoff between \teraheapSD and \teraheapGC overhead for (a) Linear Regression and (b) Logistic Regression workloads in Spark.}
-  \label{fig:tradeoffs}
+	\centering
+	\includegraphics[width=0.2\linewidth]{teraheap/fig/gc_serdes_leg-crop.pdf}
+	\\
+	\vspace{-8pt}
+	\subfloat[Linear Regression]{\includegraphics[width=0.3\linewidth]{teraheap/fig/lr_gc_serdes_line-crop.pdf}}
+	\hspace{10pt}
+	\subfloat[Logistic Regression]{\includegraphics[width=0.3\linewidth]{teraheap/fig/lgr_gc_serdes_line-crop.pdf}}
+	\caption{Tradeoff between \teraheapSD and \teraheapGC overhead for (a) Linear Regression and (b) Logistic Regression workloads in Spark.}
+	\label{fig:tradeoffs}
 \end{figure}
 
-Figure~\ref{fig:tradeoffs} shows the tradeoff between \teraheapGC and \teraheapSD as $F$ varies.
+Figure~\ref{fig:tradeoffs} shows the tradeoff between \teraheapGC and \teraheapSD as we vary F.
 The total heap size in LR and LgR is \SI{64}{GB}.
-When $F=0$, Spark serializes and offloads all cached data to storage without keeping cached data on the heap.
-In this setting, S/D cost is 24\% and 30\% higher than at $F=0.7$ in LR and LgR, respectively.
-At $F=0.7$, GC time increases by 88\% compared with $F=0$ in both workloads.
-The larger on-heap cache increases memory pressure and the JVM runs GC more frequently to free space for objects allocated during execution.
+When $F=0$, Spark serializes and offloads all the cached data to the storage device without keeping any cached data on the heap.
+As a result, when $F=0$, \teraheapSD cost is higher by 24\% and 30\% compared to $F=0.7$ in LR and LgR, respectively.
+However, when $F=0.7$, \teraheapGC time increases by 88\% compared to $F=0$ in both workloads because the \teraheapGC needs to scan more objects in each \teraheapGC cycle.
+The \teraheapGC is mainly affected by the increased memory pressure when the application keeps more data in the on-heap cache.
+The JVM triggers frequent \teraheapGC{} cycles to free space for the newly allocated objects of execution memory.
+
+%\subsection{Limitation of Existing Work}
+%
+%Existing systems~\cite{navasca:gerenuk, nguyen:facade, leaksurvivor,
+%akram:ration, wang:Panthera, nvm-gc-eurosys, jpd_heap, gcmove, thingc,
+%weiner:tmo, jang:arch} (1) target scaling the managed heap using NVM
+%or block addressable storage device, or (2) propose new \teraheapSD
+%approaches to reduce \teraheapSD cost when moving objects off-heap.
+%Table~\ref{tab:related} illustrates the taxonomy of existing
+%approaches based on following characteristics.
+%
+%\input{./related_tab}
+%
+%\paragraph{\textbf{Developer effort:}}
+%Systems, such as Gerenuk~\cite{navasca:gerenuk} and
+%Facade~\cite{nguyen:facade}, provide a compilation framework that
+%transforms programmer-specified classes for off-heap allocation at
+%compile time, thereby reducing the serialization overhead. However,
+%these systems increase programmer effort because they require
+%the developer to specify when to free objects from native memory and
+%modifying legacy applications. JDPHeap~\cite{jpd_heap} introduces an
+%extensive programming model that enables users to select which objects
+%to move from DRAM to NVM and vice versa. Cereal~\cite{jang:arch}
+%proposes optimizations for \teraheapSD with custom hardware extensions and
+%modifications to the programming model. Although other methods may
+%offer transparent solutions, they do not use the framework's knowledge
+%regarding which objects are suitable for moving to the storage device.
+%
+%%\paragraph{\textbf{Expensive reference barriers:}}
+%%Write Rationing~\cite{akram:ration} GCMove~\cite{gcmove}, and
+%%ThinGC~\cite{thingc} transparently select which objects to move from
+%%DRAM to storage device based on their hotness. Existing work uses two
+%%techniques to track object hotness: (1) through load reference
+%%barriers, used by concurrent copying collectors such as ZGC and
+%%Shenandoah to identify the most accessed objects, and (2) through
+%%post-write reference barriers, to identify the mostly written/updated
+%%objects. Although their solution is transparent, they increase the
+%%cost of the barriers and can work with specific garbage collectors.
+%%
+%%\paragraph{\textbf{User space cache:}}
+%%Leaksurvivor~\cite{leaksurvivor} uses a primary heap over DRAM and a
+%%second heap over a hard disk drive. However, Leaksurvivor does not use
+%%a memory-mapped I/O but maintains a specialized lookup mechanism in
+%%existing JVM code to track the offset of each object in the device.
+%%Although this technique targets the high latency of the hard disk
+%%drives, it requires multiple systems calls and incurs the high hit
+%%overhead of user space lookups in every load/store operation.
+%%NVM-friendly-GC~\cite{Xu:gc_evaluation} allocates their heap entirely
+%%on NVM and uses DRAM as a user-space cache for \teraheapGC operations.
+%%Although they reduce the access to NVM by the \teraheapGC threads, all the
+%%accesses to objects by application (mutator) threads are served by
+%%NVM. Another line of works ~\cite{akram:ration, wang:Panthera}
+%%allocates the young generation of the managed heap over DRAM and the
+%%old generation over NVM. To reduce further accesses over NVM, they
+%%maintain a user space cache in DRAM for objects that are allocated in
+%%NVM. Their approach requires transferring objects from NVM to DRAM
+%%during the \teraheapGC cycle, increasing \teraheapGC cost.
+%
+%\paragraph{\textbf{Device object reclamation:}}
+%Most work~\cite{akram:crystal, wang:Panthera, nvm-gc-eurosys,
+%jpd_heap, gcmove, thingc} perform eager object reclamation, spending
+%significant \teraheapGC time for scanning live objects over NVM, which is
+%slower than DRAM. Their approach is suitable for NVM, which provides
+%limited capacity compared to NVMe SSD.
+%LeakSurvivor~\cite{leaksurvivor} leverages the capacity of the hard
+%disk drive to perform lazy object reclamation. It reclaims objects in
+%the hard disk drive only when the device becomes full, paying high \teraheapGC
+%cost for long-running applications. However, performing \teraheapGC scans over
+%a storage device introduces high I/O traffic, increasing \teraheapGC pause
+%time.
+%
+%\paragraph{\textbf{Type of devices:}}
+%In addition to considerations of latency and throughput, devices also
+%differ in their access granularity. Block-addressable devices provide
+%access to fixed-size blocks, whereas byte-addressable devices offer
+%direct access to individual bytes, enabling fine-grained memory
+%operations. Recent research efforts have targeted both types of
+%devices~\cite{navasca:gerenuk, nguyen:facade, weiner:tmo, jang:arch},
+%but most existing runtime solutions~\cite{akram:ration, wang:Panthera,
+%nvm-gc-eurosys, jpd_heap, gcmove, thingc} focus on byte-addressable
+%NVM, which provides direct access to objects. One exception is
+%LeakSurvivor, which uses a second heap on a hard disk drive and
+%maintains a specialized lookup mechanism in the JVM code to track the
+%offset of each object. Although this technique targets the high
+%latency of hard disk drives, it requires expensive user space lookups
+%for every load/store operation. As datasets continue to grow, managed
+%runtimes must be able to utilize fast block-addressable storage
+%devices, such as NVMe SSDs, to support larger managed heaps than
+%current NVM devices can handle.
+%}
+%
+%\subsection{Other Related Work}
+%\name{} combines techniques from several areas, including memory
+%management and storage. Thus, we group the related work in the
+%following categories:
+%%
+%(1) region-based memory management,
+%%
+%(2) scaling managed heaps beyond DRAM, and
+%%
+%(3) mitigating \teraheapSD overhead.
+%
+%\paragraph{\textbf{Region-based memory management}}
+%Broom~\cite{gog:broom} uses region annotations but requires
+%refactoring of applications' source code. Yak~\cite{khanh:yak}
+%requires programmers to annotate epochs in applications. Yak allocates
+%all objects in an epoch on a second region-based heap to reduce \teraheapGC
+%time.  The epoch abstraction is appropriate for the map-reduce
+%programming pattern. However, it cannot handle objects computed lazily
+%or accessed from arbitrary program locations. Deca~\cite{lu:deca}
+%proposes lifetime-based memory management for Spark. However, their
+%work only applies to Spark and cannot be used for other frameworks.
+%Unlike prior work, \name{} requires adding hints only in the framework
+%layer. Then, \name{} dynamically selects all appropriate objects in
+%the transitive closure of root objects. NG2C~\cite{bruno:n2gc} uses
+%runtime profiling to identify long-lived objects. They incur online
+%profiling overhead. Other work uses offline allocation site profiling
+%to manage objects~\cite{pretenuring,Blackburn:2001:PJ}. Lifetime
+%profiling can complement \name{} and further improve efficiency.
+%
+%\paragraph{\textbf{Scaling managed heaps beyond DRAM capacity}}
+%TeraCache~\cite{kolokasis:teracache} discusses a preliminary prototype
+%of \name{}~\cite{teraheap}. In this work we present the full design
+%and thorough evaluation with production frameworks. \newtext{Also,
+%there is an amount of effort~\cite{wang:memliner, wang:semeru,
+%ma:mako} for extending the managed heaps using remote memory. On the
+%one hand, Memliner~\cite{wang:memliner} is designed for
+%software-disaggregated datacenters. MemLiner reorganizes the access
+%order of the objects by the \teraheapGC threads to follow a similar (not
+%identical) memory-access path with the mutator threads to enhance the
+%speed of far-memory accesses during \teraheapGC. On the other hand,
+%Semeru~\cite{wang:semeru} and Mako~\cite{ma:mako} target
+%hardware-designed datacenters. Semeru supports running managed big
+%data frameworks on disaggregated hardware by dividing the conventional
+%JVM into two instances:
+%%
+%(1) the CPU-JVM instance that executes the program on the CPU server
+%and
+%%
+%(2) the memory-JVM instance that performs \teraheapGC on the memory
+%server.
+%%
+%To maximize \teraheapGC performance, Semeru proposes a distributed garbage
+%collector that offloads the liveness analysis for Java objects to
+%memory servers, concurrently with mutator threads. Unlike Semeru, Mako
+%offloads to memory servers both object scanning for liveness analysis
+%and evacuation, reducing \teraheapGC pause time. \name{} is orthogonal with
+%these approaches because it investigates the scalability of the
+%managed heap using fast local storage devices.
+%}
+%
+%\paragraph{\textbf{Mitigating \teraheapSD overhead:}}
+%Several libraries~\cite{thrift,kryo,protocol-buffers} improve the
+%efficiency of \teraheapSD, but they cannot reduce high \teraheapGC cost in big data
+%frameworks. Skyway~\cite{nguyen:skyway} reduces the \teraheapSD cost by
+%directly transferring objects through the network in distributed
+%managed heaps, but it does not cope with DRAM limitations and \teraheapGC
+%overheads. SSDStreamer~\cite{ssdstreamer} is a userspace SSD-based
+%caching system that uses DRAM as a stream buffer for SSD devices.
+%Although SSDStreamer reduces \teraheapSD cost by providing a lightweight
+%serializer, it cannot reduce \teraheapGC cost and the memory pressure in the
+%managed heap. Recent work~\cite{pourhabibi:optimus} reduces \teraheapSD
+%overheads in analytics frameworks using custom hardware and
+%modifications to the programming model. Other
+%work~\cite{matei:champions, taranov:naos, ibanez:zerializer} focuses
+%on reducing \teraheapSD cost by reducing the number of object copies across
+%buffers. This body of work does not mitigate directly \teraheapGC overhead.
+%\name{} is the first work that eliminates \teraheapSD cost without increasing
+%\teraheapGC overhead for a large portion of objects in big data analytics
+%frameworks.

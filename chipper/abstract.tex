@@ -1,10 +1,5 @@
 \section*{Chapter Summary}
-Latency-sensitive services running on the Java Virtual Machine (JVM) keep response times low with two mechanisms: low-pause garbage collection (GC), which collects the heap incrementally to bound pauses, and large result caches, which avoid recomputation.
-These caches consume scarce DRAM and increase GC overhead, since cached objects stay reachable and the garbage collector must repeatedly scan them.
-Placing them off-heap on fast storage relieves both, but introduces serialization and deserialization (S/D) on every access, raising latency.
-Prior work avoids S/D cost and reduces GC scans with a storage-backed heap, but targets throughput-oriented collectors, whose long pauses are unsuitable for latency-sensitive services.
-
-We present \chipperName{}, the first storage-backed heap for low-pause garbage collectors.
+This chapter presents \chipperName{}, the first storage-backed heap for low-pause garbage collectors.
 \chipperName{} extends the JVM with a second, high-capacity heap memory-mapped over an NVMe SSD, and migrates cache objects to it.
 Migrated objects remain accessible as ordinary objects and are excluded from GC scans.
 To preserve low latency, \chipperName{} (1) incorporates the cost of migration to the storage heap into the collector's cost model for incremental GCs, (2) integrates migration into the collector's parallel object-copying path, and (3) introduces a separate path for migrating objects that cannot be moved during incremental GCs.

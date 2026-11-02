@@ -1,9 +1,5 @@
 \section*{Chapter Summary}
-Big data analytics frameworks, such as Spark and Giraph, need to process and cache massive datasets that do not always fit on the managed heap.
-Therefore, frameworks temporarily move long-lived objects outside the heap (off-heap) on a fast storage device.
-However, this practice results in (1) high serialization/deserialization (\teraheapSD) cost and (2) high memory pressure when off-heap objects are moved back for processing.
-
-In this article, we propose \teraheapName{}, a system that eliminates \teraheapSD overhead and expensive \teraheapGC scans for a large portion of objects in analytics frameworks.
+In this chapter, we propose \teraheapName{}, a system that eliminates \teraheapSD overhead and expensive \teraheapGC scans for a large portion of objects in analytics frameworks.
 \teraheapName{} relies on three concepts: (1) It eliminates \teraheapSD by extending the managed runtime (JVM) to use a second high-capacity heap (H2) over a fast storage device.
 (2) It offers a simple hint-based interface, allowing analytics frameworks to leverage object knowledge to populate H2.
 (3) It reduces \teraheapGC cost by fencing the collector from scanning H2 objects while maintaining the illusion of a single managed heap, ensuring memory safety.
