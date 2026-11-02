@@ -3,55 +3,62 @@
 \chapter{Introduction}
 \label{chapter:intro}
 
-Data-intensive applications running on the Java Virtual Machine (JVM), such as analytics frameworks~\cite{zaharia:spark,giraph}, key-value stores~\cite{lakshman:cassandra,vohra:hbase,santos:infinispan}, and search engines~\cite{mccandless:lucene,elastic_search,solr,opensearch}, rely on in-memory caches to avoid repeated computations, improving application throughput and reducing response latency.
-For instance, Spark~\cite{zaharia:spark} caches intermediate computation results to avoid recomputing them across iterative processing stages, while HBase~\cite{vohra:hbase} maintains a block cache to reduce storage accesses and improve query latency.
-As datasets grow, maintaining large caches on the JVM heap increases DRAM requirements and can increase garbage collection (GC) overhead, as long-lived cached objects remain reachable across collection cycles~\cite{mitchel:bloat,teraheap}.
+Data-intensive applications running on the Java Virtual Machine (JVM), such as analytics frameworks~\cite{zaharia:spark,giraph}, key-value stores~\cite{lakshman:cassandra,vohra:hbase,santos:infinispan}, and search engines~\cite{mccandless:lucene,elastic_search,solr,opensearch}, rely on both application-level caches (result caches) and the operating system (OS) page cache (I/O cache) to improve performance.
+Result caches avoid repeated computation, while the I/O cache retains frequently accessed storage pages in DRAM to reduce storage I/O~\cite{apapag:aquila,apapag:fmap,jmal:hugemap,guanyu:tricache,huang:flashmap}.
+For instance, Spark~\cite{zaharia:spark} caches intermediate computation results to avoid recomputation across iterative processing stages, while Elasticsearch~\cite{elastic_search} relies on the I/O cache to access frequently used index data, reducing storage I/O and improving query latency.
+As datasets grow, applications often require larger caches, increasing DRAM requirements and potentially increasing garbage collection (GC) overhead when long-lived cached objects are retained on the JVM heap~\cite{mitchel:bloat,teraheap}.
+Both the JVM heap and the I/O cache depend on DRAM, whose capacity is costly to scale to meet the growing demands of data-intensive applications~\cite{damon,zombieland,tirmazi:borg,weiner:tmo}.
 
-To reduce GC overhead, popular applications~\cite{lakshman:cassandra,vohra:hbase,zaharia:spark} move the result cache in a region of memory outside the JVM heap (off-heap).
-Unfortunately, off-heap caches introduce significant serialization and deserialization (S/D) overhead for applications that use complex data structures~\cite{ibanez:zerializer,matei:champions,nguyen:skyway}.
-Applications can avoid S/D overhead using low-level APIs such as Unsafe~\cite{jep471} and the Foreign Function and Memory API~\cite{jep454}, or specialized data representations~\cite{arrow,spark_tungsten}, but these approaches do not transparently support arbitrary Java objects and require explicit management of data layouts and memory lifetimes.
-Prior work~\cite{wang:bridgegc,khanh:yak,gog:broom,lu:deca,bruno:n2gc} has tried to mitigate these costs by introducing annotations for long-lived cache objects and allowing the garbage collector to skip scanning them.
-Although these approaches reduce GC cost, the cache still resides in DRAM, whose capacity is limited and whose cost per gigabyte is high and rising as demand grows~\cite{damon, zombieland, tirmazi:borg, weiner:tmo}.
+To reduce GC overhead, applications~\cite{lakshman:cassandra,vohra:hbase,zaharia:spark} often move cached result data outside the JVM heap (off-heap), reducing the amount of data managed by the collector.
+However, off-heap caches that store objects in serialized form incur serialization and deserialization (S/D) overhead, particularly when accessing complex data structures~\cite{ibanez:zerializer,matei:champions,nguyen:skyway}.
+Applications can avoid S/D using low-level APIs such as Unsafe~\cite{jep471} and the Foreign Function and Memory API~\cite{jep454}, or specialized data representations~\cite{arrow,spark_tungsten}, but these approaches require explicit management of data layouts and memory lifetimes and do not transparently support arbitrary Java objects.
+Prior work~\cite{wang:bridgegc,khanh:yak,gog:broom,lu:deca,bruno:n2gc} has explored ways to reduce GC overhead for long-lived objects by exploiting application knowledge or changing how collectors treat those objects.
+Although these techniques can reduce GC overhead, they do not by themselves extend managed memory capacity beyond DRAM.
 
-To overcome DRAM capacity limitations, modern applications~\cite{vohra:hbase,zaharia:spark,opensearch:tiered-cache} extend their caches to high-capacity storage devices, such as NVMe SSDs.
-This off-memory approach introduces I/O, but it has the potential to further reduce recomputation due to the increasing density and capacity of NVMe SSDs~\cite{apapag:fmap,apapag:aquila}.
-Yet off-memory approaches also incur significant object S/D overhead when accessing cached objects.
-An alternative is to back the JVM heap with a storage device through memory-mapped I/O using the JVM option \texttt{-XX:AllocateHeapAt} or through OS swapping, allowing applications to access Java objects directly without S/D.
-However, existing garbage collectors are designed for DRAM-backed heaps and incur high I/O overhead when scanning and compacting objects on storage-backed heaps~\cite{wang:memliner,khanh:polar,teraheap,kolokasis:teracache}.
-Therefore, extending the JVM heap to storage requires GC mechanisms that minimize storage I/O while preserving direct access to JVM objects.
+To expand cache capacity beyond DRAM, applications~\cite{vohra:hbase,zaharia:spark,opensearch:tiered-cache} use high-capacity storage devices, such as NVMe SSDs, which offer greater capacity at a lower cost per gigabyte than DRAM.
+These storage tiers can retain more cached data, but accessing serialized objects still incurs S/D overhead~\cite{apapag:fmap,apapag:aquila}.
+An alternative is to back the JVM heap with storage through memory-mapped I/O, preserving Java objects in their native representation and allowing direct access without S/D.
+For example, OS swapping can move heap pages to storage, while the JVM option \texttt{-XX:AllocateHeapAt} supports mapping the heap onto alternative memory devices with DRAM-like access semantics.
+However, when heap pages reside on storage, conventional garbage collectors can generate expensive I/O by scanning and compacting storage-resident objects~\cite{wang:memliner,khanh:polar,teraheap,kolokasis:teracache}.
+Extending the JVM heap to storage therefore requires GC mechanisms that preserve direct object access while limiting GC-induced storage I/O.
+An additional challenge arises in low-pause collectors, where migrating live objects to storage can increase evacuation costs and interfere with pause-time goals.
+Such collectors must account for migration costs when selecting regions for incremental collection.
 
-This dissertation proposes using storage-backed heaps to extend the result caches of data-intensive JVM applications onto fast storage devices, eliminating S/D overhead while avoiding expensive GC scans of storage-resident objects.
+Beyond extending result caches capacity, efficient JVM memory management requires allocating limited DRAM between the JVM heap and the I/O cache.
+Increasing the heap size can reduce GC overhead but leave less DRAM for the I/O cache, potentially increasing I/O stalls, while reducing it can have the opposite effect.
+Existing heap-resizing mechanisms primarily respond to GC behavior without explicitly considering I/O costs~\cite{sun:multi_space_heap,wang:elasticMem,boehm:gc,zgc:heap_resize}.
+In practice, systems such as Cassandra and Elasticsearch recommend limiting the JVM heap to approximately half of DRAM~\cite{elasticsearch:guidelines,cassandra:guidelines}, but such limits can increase GC overhead during allocation-intensive phases.
+Other approaches, such as Vertical G1 (VG1)~\cite{jep351,jep346,wang:elasticMem,bruno:resize}, return unused heap memory to the OS without explicitly considering I/O costs.
+As memory and I/O demands change across execution phases, these mechanisms cannot consistently minimize both GC and I/O overhead, leading to inefficient DRAM utilization and potentially degraded application performance.
 
-First, we investigate how to improve the performance of throughput-oriented applications by extending the JVM heap to high-capacity storage devices.
-We design and implement a storage-backed heap architecture that consists of two managed heaps: a DRAM heap (DH) and a storage heap (SH) memory-mapped over an NVMe SSD.
-Our approach uses a hint-based interface that allows frameworks to identify cached objects for migration to SH, while preserving their Java object representation and avoiding S/D.
-To reduce GC overhead, we prevent the collector from traversing objects in SH by tracking references between DH and SH, as well as references among SH regions, using metadata maintained in DRAM.
-We also organize SH into regions containing objects with similar lifetimes and reclaim entire regions when all their objects become unreachable.
-This approach avoids expensive object scanning and compaction over storage, trading storage capacity for reduced GC-related I/O.
+This dissertation investigates how to address DRAM capacity limitations and improve DRAM utilization through efficient storage-backed JVM heaps and I/O-aware dynamic heap resizing.
+We address three complementary challenges: managing storage-resident objects without full GC scans, integrating object migration into low-pause GCs, and dynamically allocating DRAM between the JVM heap and the I/O cache based on GC and I/O costs.
 
-First, we investigate how to improve the performance of throughput-oriented applications by extending the JVM heap to high-capacity storage devices.
-We design and implement a storage-backed heap architecture that consists of two managed heaps: a DRAM heap (DH) and a storage heap (SH) memory-mapped over an NVMe SSD.
-Our approach uses a hint-based interface that allows frameworks to identify long-lived objects suitable for migration to SH, while preserving their Java object representation and avoiding S/D.
-To reduce GC overhead, we prevent the collector from traversing objects in SH by tracking references between DH and SH, as well as references among SH regions, using metadata maintained in DRAM.
-We also organize SH into regions containing objects with similar lifetimes and reclaim entire regions when all their objects become unreachable.
-This approach avoids expensive object scanning and compaction over storage, trading storage capacity for reduced GC-related I/O.
+First, we design a storage-backed heap to improve the performance of throughput-oriented applications.
+We extend a throughput-oriented garbage collector with a dual-heap architecture consisting of (1) a DRAM heap (DH) and (2) a region-based storage-backed heap (SH) on an NVMe SSD, memory-mapped into the JVM address space.
+The architecture presents a unified managed heap to applications and preserves direct access to SH objects without S/D.
+We provide a hint-based interface through which frameworks identify objects suitable for migration to SH without explicitly managing the two heaps.
+To avoid full scans of SH, we track references from DH to SH during GC and record dependencies among SH regions using metadata in DRAM.
+A storage-optimized card table tracks references from SH to DH, limiting GC scanning to the relevant portions of SH while preserving correct cross-heap reference processing.
+We group objects with similar lifetimes into SH regions and reclaim whole regions when they become unreachable, avoiding storage-resident object compaction.
+This design trades additional storage capacity for reduced GC-induced I/O and eliminates S/D for SH objects, improving application throughput while extending the managed heap beyond DRAM.
 
-Finally, we address the problem of dynamically partitioning DRAM between the JVM heap and the OS page cache to adapt to changes in application behavior.
-This problem is particularly important for storage-backed heaps, where DH competes with the OS page cache used to access objects in SH.
-The optimal division of DRAM depends on application memory requirements, which may vary across execution phases.
-Increasing the JVM heap size can reduce GC overhead but leaves less DRAM available for the OS page cache, potentially increasing I/O stalls.
-Conversely, shrinking the heap can reduce I/O stalls but increase GC overhead.
-Existing heap-resizing mechanisms primarily consider GC overhead and cannot effectively adapt to changing I/O demands.
-To overcome this limitation, we design and implement an I/O-aware heap-resizing mechanism that estimates the CPU time lost to GC and I/O stalls and dynamically adjusts the JVM heap size to reduce their combined cost.
-Our approach determines both the direction and the amount of resizing based on changes in these overheads during execution.
-Although this is a general memory-management problem for data-intensive JVM applications, the mechanism can also complement storage-backed heaps by adapting the DRAM allocated to DH and the memory available for caching SH objects as application requirements change.
+Next, we extend storage-backed heaps to latency-sensitive applications that rely on low-pause garbage collectors.
+Unlike throughput-oriented collection, low-pause collection must also control the impact of migration on pause times and application tail latency.
+Moving live objects from DH to SH introduces additional evacuation costs that affect which regions can be collected within a pause-time budget.
+We extend the collector's region-selection model to account for migration cost and the DRAM freed through both garbage reclamation and migration of live objects to SH.
+We integrate object migration into parallel evacuation and provide a separate migration path during full GC for large objects that are not normally evacuated in incremental collections.
+These mechanisms limit migration-induced GC pause overhead and improve application tail latency while extending managed heap capacity beyond DRAM.
+
+Finally, we investigate how to dynamically partition DRAM between the JVM heap and the I/O cache as application requirements change.
+We design an I/O-aware heap-resizing mechanism that estimates time lost to GC and I/O stalls under a fixed DRAM budget.
+Using changes in these costs, the mechanism determines when to grow or shrink the JVM heap and by how much, aiming to reduce their combined overhead.
+This approach addresses a general resource-allocation problem in data-intensive JVM applications and could complement storage-backed heaps, where DH competes with the I/O cache for DRAM used to access SH objects.
 
 \begin{center}
 	\fbox{
-		\begin{minipage}{0.95\textwidth}
-			%
-			\textbf{Thesis statement:} We provide an efficient storage-backed heap that extends the JVM heap beyond DRAM for throughput-oriented and latency-sensitive applications.
-		\end{minipage}%
+		\begin{minipage}{0.95\textwidth} \textbf{Thesis statement:} We demonstrate how to address DRAM capacity limitations and improve DRAM utilization in the JVM through efficient storage-backed managed heaps and I/O-aware dynamic heap resizing.
+		\end{minipage}
 	}
 \end{center}
 
@@ -62,16 +69,16 @@ The main contributions of this dissertation are as follows:
 \begin{enumerate}
 
 	\item \textbf{Storage-backed heaps for throughput-oriented applications.}
-	      We introduce a dual-heap architecture that preserves direct access to Java objects across DRAM and storage.
-	      Our design combines hint-based object placement, reference tracking, and region-level space reclamation to avoid expensive GC operations over storage.
+	      We introduce a dual-heap architecture that extends managed memory beyond DRAM while presenting applications with a unified JVM heap.
+	      We combine hint-based object placement, storage-aware cross-heap reference tracking, and region-level reclamation to retain direct object access while reducing S/D and GC-induced storage I/O.
 
 	\item \textbf{Storage-backed heaps for latency-sensitive applications.}
-	      We extend storage-backed heap management to low-pause garbage collectors by incorporating storage migration into incremental garbage collection.
-	      Our design introduces a storage-aware region-selection model, parallel object migration, and separate handling of large objects to account for the additional evacuation cost within the collector's pause-time constraints.
+	      We integrate storage-backed object migration into a region-based, low-pause garbage collector.
+	      A migration-aware region-selection model, parallel evacuation, and a separate path for large objects address the additional collection costs while limiting GC pause overhead.
 
 	\item \textbf{I/O-aware dynamic heap resizing.}
-	      We introduce a runtime mechanism that dynamically partitions DRAM between the JVM heap and the OS page cache according to changing application demands.
-	      Our approach combines GC and I/O stall costs in a unified resizing policy, enabling memory allocation decisions that account for both computation and storage performance.
+	      We introduce a resizing policy that considers both GC and I/O-stall costs when dividing a fixed DRAM budget between the JVM heap and the I/O cache.
+	      The policy adapts heap size to changes in application behavior, improving DRAM utilization without requiring a storage-backed managed heap.
 
 \end{enumerate}
 
@@ -84,21 +91,50 @@ The remainder of this thesis is organized as follows.
 
 \begingroup \setlength{\parskip}{0.8\baselineskip}
 
-\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:back]{\textbf{Chapter~\ref*{chapter:back}}} provides background on JVM memory management, garbage collection, memory-mapped I/O, and storage-backed heaps.
-
 \noindent\hangindent=3em\hangafter=1 \hyperref[chapter:teraheap]{\textbf{Chapter~\ref*{chapter:teraheap}}} introduces a storage-backed heap for throughput-oriented applications that extends the JVM heap beyond DRAM while reducing S/D overhead and expensive GC operations over storage.
 
 \noindent\hangindent=3em\hangafter=1 \hyperref[chapter:chipper]{\textbf{Chapter~\ref*{chapter:chipper}}} extends storage-backed heaps to low-pause garbage collectors by integrating storage-aware object migration into incremental garbage collection to support latency-sensitive applications.
 
-\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:flexheap]{\textbf{Chapter~\ref*{chapter:flexheap}}} introduces an I/O-aware dynamic heap-resizing mechanism that adapts the division of DRAM between the JVM heap and the OS page cache to changing application memory requirements.
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:flexheap]{\textbf{Chapter~\ref*{chapter:flexheap}}} introduces an I/O-aware dynamic heap-resizing mechanism that adapts the division of DRAM between the JVM heap and the I/O cache to changing application memory and I/O demands.
 
-\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:related]{\textbf{Chapter~\ref*{chapter:related}}} synthesizes related work on storage-backed managed heaps, GC and data-movement costs, and JVM heap sizing.
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:related]{\textbf{Chapter~\ref*{chapter:related}}} synthesizes related work on storage-backed managed heaps, garbage collection, data movement, and dynamic JVM heap sizing.
 
-\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:future_work]{\textbf{Chapter~\ref*{chapter:future_work}}} outlines directions for future research.
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:future_work]{\textbf{Chapter~\ref*{chapter:future_work}}} discusses open challenges and directions for future research.
 
-\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:conclusion]{\textbf{Chapter~\ref*{chapter:conclusion}}} concludes the dissertation by summarizing its main contributions.
+\noindent\hangindent=3em\hangafter=1 \hyperref[chapter:conclusion]{\textbf{Chapter~\ref*{chapter:conclusion}}} concludes the dissertation by summarizing its contributions and the broader implications for managed-runtime memory management.
 
 \par \endgroup
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
