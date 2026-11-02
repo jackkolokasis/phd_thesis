@@ -3,7 +3,7 @@
 \chapter{Related Work}
 \label{chapter:related}
 
-This chapter reviews work related to the dissertation's three contributions: storage-backed managed heaps, garbage-collection and data-placement techniques, and dynamic coordination of JVM heap capacity with the operating-system page cache.
+This chapter reviews work related to the dissertation's three contributions: storage-backed managed heaps, garbage collection and data-placement techniques, and dynamic coordination of JVM heap capacity with the operating-system page cache.
 The first two contributions extend managed-object capacity onto storage while addressing collector costs under different collection goals.
 The third contribution studies how the JVM heap and file cache should share DRAM, and can complement storage-backed heaps without itself implementing one.
 
@@ -40,13 +40,11 @@ These systems target byte-addressable media, whose access granularity and capaci
 Remote-memory systems address the cost of tracing and collecting objects across a network.
 MemLiner improves far-memory locality by aligning collector access order with mutator access patterns~\cite{wang:memliner}.
 Semeru separates execution and memory responsibilities across JVM instances, while Mako offloads object scanning and evacuation to memory servers~\cite{wang:semeru,ma:mako}.
-DGC offloads concurrent marking to a remote garbage-collection service over RDMA~\cite{hongtao:dgc}.
+DGC offloads concurrent marking to a remote garbage collection service over RDMA~\cite{hongtao:dgc}.
 SmartSweep explores reclamation of remote or tiered managed heaps by returning garbage-rich regions to local memory for collection~\cite{kolokasis:smartsweep}.
 SmartSweep is an exploratory direction in this dissertation rather than a fourth principal contribution.
 
-\section{Reducing Managed-Memory and Data-Movement Costs}
-
-\subsection{Reducing Garbage-Collection Cost}
+\section{Reducing GC Cost}
 
 Some systems reduce GC cost while keeping application data in DRAM.
 Facade and Gerenuk transform application code to use off-heap representations, reducing the amount of object data traced by the JVM~\cite{nguyen:facade,navasca:gerenuk}.
@@ -56,7 +54,7 @@ BridgeGC uses framework annotations to avoid repeatedly tracing and copying long
 NG2C and allocation-site profiling identify long-lived objects for pretenuring~\cite{bruno:n2gc,pretenuring,Blackburn:2001:PJ}.
 These approaches reduce tracing, copying, or allocation overhead, but do not provide the capacity of a storage-backed heap.
 
-\subsection{Reducing Serialization and Data-Movement Cost}
+\section{Reducing S/D Cost}
 
 Serialization libraries such as Thrift, Kryo, and Protocol Buffers provide general-purpose formats and implementations for converting object graphs to and from byte streams~\cite{thrift,kryo,protocol-buffers}.
 Other systems reduce conversion or transfer costs by moving managed object graphs directly between JVMs, as in Skyway, or by bypassing conventional serialization for RDMA or inter-JVM transfers, as in Naos and ZCOT~\cite{nguyen:skyway,taranov:naos,wu:zero_change}.
@@ -66,23 +64,74 @@ These systems address S/D or copy costs, while TeraHeap and Chipper retain manag
 
 \section{Heap Sizing and DRAM Coordination}
 
-\subsection{JVM Heap-Resizing Policies}
+\subsection{Heuristic Heap Sizing}
+Brecht et al.~\cite{brecht:nogc} propose a heuristic based resizing mechanism for expanding the heap in Boehm-Demers-Weiser GC~\cite{boehm:gc}.
+They aim to reduce \flexheapGC{} cost while avoiding paging.
+The heap grows by different amounts, depending on its current size in relations to a set of predefined
+hand-tuned threshold values. %However, the heap size is never reduced.
+%
+PAMM~\cite{zhang:pamm} exploits repetition in program phase behavior to manage memory adaptively.
+However, their technique does not apply to complex real-life big data frameworks.
+%
+IslaVista~\cite{grz:isla_vista} proposes a heap resizing policy to avoid \flexheapGC{}-induced paging using OS information.
+Heap grows linearly as there are not allocation stalls and shrinks aggressively when allocation stalls are detected.
+%
+Bruno et al.~\cite{bruno:resize} propose a sizing policy enabling JVM to dynamically grow and shrink the heap according to the cloud application requirements.
+%
+Cook et al.~\cite{cook:auto} and Sim{\~a}o et al.~\cite{simao:adaptability} study how the \flexheapGC{} heap resizing policy affects the performance of the application.
+%
+Tavakolisomeh et al.~\cite{zgc:heap_resize} propose the heap size adjustment based on the CPU time spent on \flexheapGC{}.
+This approach focuses on minimizing CPU overhead for concurrent collectors, ensuring efficient memory use without stalling application performance.
+%
+In contrast, \flexheapName{} tackles a broader challenge by dynamically partitioning DRAM between the heap and I/O cache, reducing the combined overhead of \flexheapGC{} time and I/O wait time.
 
-Prior heap-sizing work uses heuristics, analytical models, profiling, or feedback control to adapt heap capacity to application behavior.
-Heuristic policies have been proposed for Boehm-Demers-Weiser GC and JVMs, and other work studies heap resizing under paging, allocation stalls, or changing application requirements~\cite{brecht:nogc,boehm:gc,zhang:pamm,grz:isla_vista,bruno:resize,cook:auto,simao:adaptability,zgc:heap_resize}.
-Model-based policies estimate heap needs or paging costs from application and operating-system measurements~\cite{yang:real_mem,sun:multi_space_heap,tay:page_fault,vengerov:gc_analysis,singer:economics,kirisame:membalancer}.
-Control-theoretic approaches use feedback to maintain a target GC objective or coordinate memory across database structures~\cite{white:pid,storm:db2}.
-Cross-runtime systems allocate memory among multiple JVMs or managed processes to reduce paging or improve aggregate throughput~\cite{alonso:advisor,hertz:waste_not,cameron:forseti,wang:elasticMem}.
+\subsection{Explicit Model-Based Heap Sizing}
+Yang et al.~\cite{yang:real_mem} proposed an analytical model to adjust heap size in multi-tenant environments.
+The model monitors application memory allocation and footprint, periodically changing heap size to minimize \flexheapGC{} cost and paging.
+However, their approach needs OS modifications.
+%
+Sun et al.~\cite{sun:multi_space_heap} tackle the issue of memory management for many applications operating under a single JVM by proposing segregated, per-application heaplets.
+They present an analytical model that modifies heaplet sizes to equilibrate \flexheapGC{} frequency among all applications, so preventing any single application from unduly impacting the system's overall performance.
+%
+Tay et al.~\cite{tay:page_fault} formulate a page fault equation that correlates the frequency of page faults with heap size and resident heap size, predicated on established \flexheapGC{} and OS rules for a certain program input.
+They propose a heap sizing rule that reduces page faults.
+However, alterations in input or system load necessitate parameter recalibration, hence constraining its adaptability.
+%
+Vengerov~\cite{vengerov:gc_analysis} creates a mathematical model to optimize throughput in generational heaps by tuning \flexheapGC{} parameters.
+%
+Singer et al.~\cite{singer:economics} apply microeconomic supply and demand theory to model \flexheapGC{} behavior, using elasticity to guide heap size expansion.
+However, they require from users to set a target elasticity value which is not intuitive.
+%
+MemBalancer~\cite{kirisame:membalancer} proposes a model-based heap resizing policy for V8 that derives a compositional square-root heap-limit rule.
+Its key idea is to coordinate heap allocations across multiple concurrent runtimes under a shared memory budget so as to optimize the trade-off between total GC time and memory usage.
+%
+Unlike these approaches, \flexheapName{} does not rely on an explicit analytical or predictive model of heap behavior.
+Instead, it uses a model-free, feedback-driven controller based on observed changes in GC and I/O cost, which avoids assuming a fixed heap--I/O relationship across workloads and storage environments.
 
-These policies address heap capacity, GC overhead, paging, or shared-memory allocation, but generally do not distinguish DRAM used by the JVM heap from DRAM used by the operating system to cache storage-backed data.
-That distinction matters when heap and I/O demands change together.
+\subsection{Control-theoretic Heap Sizing}
+White et al.~\cite{white:pid} suggest a Proportional-Integral-Derivative (PID) controller that monitors the \flexheapGC{} overhead and modifies the heap resize ratio to uphold a user-defined target \flexheapGC{} goal.
+%
+Storm et al.~\cite{storm:db2} examine autonomic database configuration through control theory to create a self-tuning memory manager that dynamically modifies heap sizes in databases.
+Their methodology employs separate heaps for different memory-intensive operations, including SQL cache and buffer pool.
+The suggested strategy employs a cost/benefit estimation model to adjust the size of each heap, aiming to equilibrate the cost/benefit metrics among all heaps.
+They utilize a multi-input multi-output (MIMO) controller with integral control for tuning, highlighting the advantages of this controller-based approach, which encompasses rapid convergence, swift adaptability, and stable responses to noise.
 
-\subsection{Coordinating the Heap with the I/O Cache}
+\subsection{Cross-runtime Heap Sizing}
+Prior work~\cite{alonso:advisor,hertz:waste_not,cameron:forseti,wang:elasticMem} has studied dynamic heap sizing in shared environments, adjusting heap sizes across multiple managed processes or VMs to reduce paging or improve overall throughput.
+ElasticMem~\cite{wang:elasticMem}, for example, reclaims heap memory from data analytics applications and returns it to the OS for use by other processes.
+Our work differs in both scope and abstraction.
+Prior systems operate at the JVM abstraction boundary, modeling heap size as a function of throughput without distinguishing the causes of performance degradation.
+\flexheapName{}, in contrast, explicitly measures I/O stall time and separates GC displacement from blocked mutator progress.
+This cross-layer attribution lies outside the black-box interface assumed by prior multi-runtime allocators, and is important because heap--I/O interactions are mediated by I/O cache dynamics rather than by heap size alone.
 
-Application-specific cache systems allow developers to align caching with application access patterns~\cite{lee:p2cache}.
-Symbiosis coordinates user-space block caches with the operating-system I/O cache, using offline profiling to guide its decisions~\cite{dai:symbiosis}.
-FlexHeap instead resizes the JVM heap using feedback about both GC cost and I/O stalls, dynamically reallocating DRAM between the heap and the I/O cache.
-It can therefore complement TeraHeap and Chipper, where the OS page cache affects access to storage-backed heap objects, but it is not itself a storage-backed collector.
+\subsection{I/O Cache and Application Coordination}
+P2Cache~\cite{lee:p2cache} proposes an application-specific I/O cache that enables developers to build a custom I/O cache that aligns with I/O characteristics of their application.
+%
+Symbiosis~\cite{dai:symbiosis} dynamically configures the size of user-space block caches in persistent key-value stores with the I/O cache to improve their performance, requiring offline profiling.
+%
+Unlike these systems, \flexheapName{} focuses on the dynamic DRAM division between the JVM heap and I/O cache without application knowledge or offline profiling.
+%
+Also, \flexheapName{} could be applicable for systems~\cite{khanh:polar,teraheap,kolokasis:teracache,kolokasis:teraheap_toplas,kolokasis:smartsweep} that use I/O cache to extend the JVM heap over slower memory tiers, such as fast storage devices or remote memory.
 
 \section{Positioning of This Dissertation}
 
