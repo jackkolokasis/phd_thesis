@@ -1,32 +1,32 @@
 
 In this chapter, we propose \teraheapName{}, a system that eliminates \teraheapSD and \teraheapGC overheads for a large portion of the data in managed big data analytics frameworks.
-\teraheapName{} extends the Java virtual machine (JVM) to use a second, high-capacity heap (H2) over a fast storage device that coexists alongside the regular heap (H1).
-It eliminates \teraheapSD by providing direct access to objects in H2 and reduces \teraheapGC by avoiding costly \teraheapGC scans over objects in H2.
+\teraheapName{} extends the Java virtual machine (JVM) to use a second, high-capacity heap (SH) over a fast storage device that coexists alongside the regular heap (DH).
+It eliminates \teraheapSD by providing direct access to objects in SH and reduces \teraheapGC by avoiding costly \teraheapGC scans over objects in SH.
 Frameworks use \teraheapName{} through its hint-based interface without modifications to the applications that run on top of them.
 \teraheapName{} addresses three main challenges, as follows.
 
-\paragraph{\textbf{Identifying candidate objects for H2}}
+\paragraph{\textbf{Identifying candidate objects for SH}}
 %
 Big data frameworks move specific objects outside the managed heap on off-heap storage.
 For instance, Spark moves off-heap intermediate results; Giraph moves the vertices and edges of the graph and the messages sent between vertices.
 Frameworks organize such data (partitions) as groups of objects with a single-entry root reference~\cite{mahmud:survey}.
-\teraheapName{} provides a hint-based interface that uses \emph{key-object opportunism}~\cite{hayes:key_opport} and enables frameworks to mark objects and indicate when to move them to H2.
-During \teraheapGC, \teraheapName{} dynamically identifies the transitive closure of marked objects and move them to H2.
+\teraheapName{} provides a hint-based interface that uses \emph{key-object opportunism}~\cite{hayes:key_opport} and enables frameworks to mark objects and indicate when to move them to SH.
+During \teraheapGC, \teraheapName{} dynamically identifies the transitive closure of marked objects and move them to SH.
 
-\paragraph{\textbf{Eliminating \teraheapGC cost for H2}}
+\paragraph{\textbf{Eliminating \teraheapGC cost for SH}}
 %
-\teraheapName{} presents a unified heap with the aggregate capacity of H1 and H2, where \emph{scans over H2 during \teraheapGC are eliminated,} to avoid expensive device I/O.
+\teraheapName{} presents a unified heap with the aggregate capacity of DH and SH, where \emph{scans over SH during \teraheapGC are eliminated,} to avoid expensive device I/O.
 %
-To achieve this, \teraheapName{} organizes H2 into regions with similar-lifetime objects and deals differently with liveness analysis and space reclamation.
+To achieve this, \teraheapName{} organizes SH into regions with similar-lifetime objects and deals differently with liveness analysis and space reclamation.
 %
 We exploit the observation that analytics frameworks~\cite{zaharia:spark, giraph} organize groups of objects with similar lifetimes, such as cached partitions in Spark, in data structures with a single-entry root reference.
 %
-For liveness analysis, \teraheapName{} identifies live H2 regions by tracking forward (H1 to H2) and cross-region (into H2) references during \teraheapGC.
-To identify live objects in H1, \teraheapName{} explicitly tracks backward references (H2 to H1) and fences \teraheapGC scans in H2.
+For liveness analysis, \teraheapName{} identifies live SH regions by tracking forward (DH to SH) and cross-region (into SH) references during \teraheapGC.
+To identify live objects in DH, \teraheapName{} explicitly tracks backward references (SH to DH) and fences \teraheapGC scans in SH.
 \teraheapName{} tracks backward references using a card table optimized for storage-backed heaps, minimizing I/O traffic to the underlying device during \teraheapGC.
 %
-For space reclamation, the collector reclaims H1 objects as usual.
-For H2 regions, unlike existing region-based allocators~\cite{gog:broom,khanh:yak} \teraheapName{} resolves the space-performance trade-off for reclaiming space differently.
+For space reclamation, the collector reclaims DH objects as usual.
+For SH regions, unlike existing region-based allocators~\cite{gog:broom,khanh:yak} \teraheapName{} resolves the space-performance trade-off for reclaiming space differently.
 Existing allocators reclaim region space eagerly by moving live objects to another region, which would generate excessive I/O for storage-backed regions.
 Instead, \teraheapName{} uses the high capacity of NVMe SSDs to reclaim entire regions lazily, avoiding slow object compaction on the storage device.
 
@@ -53,7 +53,7 @@ To process large datasets that exceed DRAM capacity in GDS, we show how it can e
 %to store mutable objects, such as edges and messages.
 
 We implement \teraheapName{} and its mechanisms in OpenJDK8 and OpenJDK17, extending the Parallel Scavenge garbage collector.
-We also extend the interpreter and the C1 and C2 Just-in-Time (JIT) compilers to support object updates in H2 during application execution.
+We also extend the interpreter and the C1 and C2 Just-in-Time (JIT) compilers to support object updates in SH during application execution.
 %
 Our evaluation shows that \teraheapName{} improves performance by up to 73\%, 28\%, and 26\% compared to native Spark, Giraph, and GDS, respectively.
 %
@@ -76,15 +76,15 @@ This article builds upon the \teraheapName{} system~\cite{teraheap} by presentin
 First, we rigorously analyze the trade-off between a large managed heap to store long-lived objects versus moving these objects off-heap.
 %
 Second, we extend the Parallel Scavenge (PS) garbage collector in OpenJDK17 to work with \teraheapName{} and provide an in-depth evaluation of its performance, showing that \teraheapName{} still provides better performance in newer JVM versions.
-The key challenge in supporting OpenJDK17 includes multithreaded compactions during major \teraheapGC{} in the H1.
+The key challenge in supporting OpenJDK17 includes multithreaded compactions during major \teraheapGC{} in the DH.
 %
 Third, we illustrate the applicability of \teraheapName{} in enabling in-memory frameworks that do not move objects off-heap to handle larger problem sizes (beyond DRAM) without needing \textit{ad-hoc} solutions.
 For this purpose, we show how \teraheapName{} applies to and improves the performance of the GDS library compared to mapping the managed heap or part of the managed heap over a storage device.
 %
-Fourth, we investigate how dividing a fixed amount of DRAM between H1 and (OS) page cache for H2 affects \teraheapName{}'s performance.
-Our goal is to understand better the scenarios in which the size of H1 or the size of the page cache has a more significant impact on performance.
+Fourth, we investigate how dividing a fixed amount of DRAM between DH and (OS) page cache for SH affects \teraheapName{}'s performance.
+Our goal is to understand better the scenarios in which the size of DH or the size of the page cache has a more significant impact on performance.
 %
-Fifth, we examine the sensitivity of \teraheapName{} to different storage devices technologies (predominant practice in the data center) by allocating H2 over SATA SSD and NVMe devices.
+Fifth, we examine the sensitivity of \teraheapName{} to different storage devices technologies (predominant practice in the data center) by allocating SH over SATA SSD and NVMe devices.
 %
 Finally, we introduce a taxonomy of prior art and discuss the critical limitations of the state of the art in depth.
 

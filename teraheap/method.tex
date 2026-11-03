@@ -22,14 +22,14 @@ We answer the following questions in our evaluation:
 \begin{enumerate}
   \item How does \teraheapName{} perform compared to native JVM and
     state-of-the-art Panthera with NVMe SSDs and NVM?
-  \item What are the space requirements of H2 in the storage device
+  \item What are the space requirements of SH in the storage device
     and for its metadata in DRAM?
   \item What is the overhead of tracking references and moving
-    objects to H2 during \teraheapGC?
+    objects to SH during \teraheapGC?
   \item How does \teraheapName{} scale with an increasing number of mutator
     threads and dataset size?
   \item How does the performance of \teraheapName{} vary based on (1) the
-    distribution of DRAM between H1 and the page cache for H2, and (2) the
+    distribution of DRAM between DH and the page cache for SH, and (2) the
     type of storage device used?
   \item How does \teraheapName{} perform compared to newer garbage
     collectors?
@@ -38,7 +38,7 @@ We answer the following questions in our evaluation:
 \paragraph{\textbf{Server infrastructure}}
 We evaluate \teraheapName{} both with block-addressable NVMe SSDs,
 SATA SSDs, and byte-addressable NVM as the backing device
-for H2. Table~\ref{tab:server} shows the properties of each server.
+for SH. Table~\ref{tab:server} shows the properties of each server.
 Our NVM server operates in two modes:
 %
 (1) \emph{App Direct mode} uses \SI{192}{GB} DRAM as main memory and
@@ -128,14 +128,14 @@ GDS-OldGen allocates only the old generation of the managed heap on an
 NVMe SSD using memory mapping (setting the \emph{-XX:AllocateOldGenAt}
 runtime flag) and the young generation in DRAM.
 
-We configure \teraheapName{} to allocate H1 on DRAM and H2 over a file in NVMe
+We configure \teraheapName{} to allocate DH on DRAM and SH over a file in NVMe
 SSD or NVM via memory-mapped I/O (\teraheapMMIO). The file in both NVMe and
 NVM servers is mapped to the JVM virtual address space where the
 application can access the data with regular load/store
 instructions~\cite{apapag:fmap}. Our experiments show that machine
 learning (ML) workloads in Spark access the individual elements of
 cached RDD partitions sequentially. For this reason, we configure
-\teraheapName{} for Spark ML workloads to use huge pages (\SI{2}{MB}) in H2 to
+\teraheapName{} for Spark ML workloads to use huge pages (\SI{2}{MB}) in SH to
 reduce the frequency of page faults. Instead of the native
 \emph{mmap}, we use HugeMap~\cite{jmal:hugemap} a custom, open source,
 \teraheapMMIO path that enables huge pages for file-backed mappings.
@@ -151,7 +151,7 @@ column in Table~\ref{tab:spark_conf}). In Giraph-OOC, we
 experimentally find the minimum heap size for each workload
 (Giraph-OOC Heap column in Table~\ref{tab:giraph_conf}). \teraheapName{} uses
 the same amount of DRAM as Spark-SD and Giraph-OOC but divides it
-between H1 (DR1) and system (DR2). The DRAM devoted to system use
+between DH (DR1) and system (DR2). The DRAM devoted to system use
 (DR2) includes the Spark and Giraph drivers and the kernel page cache
 for I/O.
 
@@ -164,10 +164,10 @@ the maximum size of the young generation and provide the best
 configuration for our experiments. Specifically, for PR and WCC, the
 young generation is 30\% of DRAM, while for CDLP is 20\% of the DRAM.
 
-For the division of DRAM, we explore H1 sizes between 50\% and 90\% of
+For the division of DRAM, we explore DH sizes between 50\% and 90\% of
 DRAM capacity, and we report results with a configuration hand-tuned
 for each workload. Table~\ref{tab:spark_conf} and
-Table~\ref{tab:giraph_conf} show the H1 size of \teraheapName{} in each
+Table~\ref{tab:giraph_conf} show the DH size of \teraheapName{} in each
 workload, in Spark and Giraph, respectively. DR2 is always \SI{16}{GB}
 for Spark, whereas Table~\ref{tab:giraph_conf} shows the DR2 size for
 Giraph-OOC and \teraheapName{} in each Giraph workload. We limit the available
@@ -193,7 +193,7 @@ end-to-end execution time. We observe low run-to-run variation (up to 2\%), and
 five iterations suffice. We break execution time into four components:
 \emph{other} time, \teraheapSD + I/O time, minor \teraheapGC time, and major \teraheapGC time. Other
 time includes mutator threads time. In \teraheapName{}, the other time potentially
-includes I/O wait due to page faults when accessing the H2 backing device. In
+includes I/O wait due to page faults when accessing the SH backing device. In
 Spark-SD (see Table~\ref{tab:baselines}), \teraheapSD time includes \teraheapSD time both for
 shuffle and caching. In \teraheapName{} and Spark-MO (see Table~\ref{tab:baselines}),
 all \teraheapSD time is due to shuffling. The JVM reports the time spent in minor and

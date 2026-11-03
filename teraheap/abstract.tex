@@ -1,8 +1,8 @@
 \section{Summary}
 In this chapter, we propose \teraheapName{}, a system that eliminates \teraheapSD overhead and expensive \teraheapGC scans for a large portion of objects in analytics frameworks.
-\teraheapName{} relies on three concepts: (1) It eliminates \teraheapSD by extending the managed runtime (JVM) to use a second high-capacity heap (H2) over a fast storage device.
-(2) It offers a simple hint-based interface, allowing analytics frameworks to leverage object knowledge to populate H2.
-(3) It reduces \teraheapGC cost by fencing the collector from scanning H2 objects while maintaining the illusion of a single managed heap, ensuring memory safety.
+\teraheapName{} relies on three concepts: (1) It eliminates \teraheapSD by extending the managed runtime (JVM) to use a second high-capacity heap (SH) over a fast storage device.
+(2) It offers a simple hint-based interface, allowing analytics frameworks to leverage object knowledge to populate SH.
+(3) It reduces \teraheapGC cost by fencing the collector from scanning SH objects while maintaining the illusion of a single managed heap, ensuring memory safety.
 
 We implement \teraheapName{} in OpenJDK8 and OpenJDK17 and evaluate it with fifteen widely used applications in two real-world big data frameworks, Spark and Giraph.
 We find that for the same DRAM size, \teraheapName{} improves performance by up to 73\% and 28\% compared to native Spark and Giraph.
