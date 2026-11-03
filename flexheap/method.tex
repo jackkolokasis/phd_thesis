@@ -4,11 +4,11 @@
 Our evaluation focuses on four questions:
 
 \begin{enumerate}
-\item How much does \flexheapName{} improve application performance for I/O intensive applications?
+	\item How much does \flexheapName{} improve application performance for I/O intensive applications?
 
-\item How do \flexheapName{}’s resizing decisions affect the tail latency?
+	\item How do \flexheapName{}’s resizing decisions affect the tail latency?
 
-\item How sensitive is \flexheapName{} to the (a) application phase changes, (b) storage device latency, and (c) resizing step?
+	\item How sensitive is \flexheapName{} to the (a) application phase changes, (b) storage device latency, and (c) resizing step?
 
 \end{enumerate}
 
@@ -56,6 +56,7 @@ Lucene is the core indexing and search library behind Elasticsearch, making it a
 These workloads allow us to trigger predictable shifts in resource usage (between I/O cache and JVM heap demands) so we can observe \flexheapName{}’s responsiveness to dynamic memory requirements.
 
 \begin{figure}[t]
+	\centering
 	\includegraphics[width=0.5\linewidth]{flexheap/fig/method/words_freq.pdf}
 	\caption{Distribution of words by their exact frequency in the dataset used for Lucene microbenchmarks.}
 	\label{fig:words_freq}

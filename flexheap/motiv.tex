@@ -9,6 +9,7 @@ During ingestion, incoming documents are indexed and made searchable.
 Section~\S~\ref{flexheap:sec:methodology} describes the full experimental setup.
 
 \begin{figure*}[t]
+	\centering
 	\includegraphics[width=0.6\linewidth]{flexheap/fig/motiv/legend.pdf}
 	\\
 	\subfloat[G1-90]{\includegraphics[width=0.245\linewidth]{flexheap/fig/motiv/nat90_ci4_cs32_d8g.pdf}}
@@ -16,25 +17,19 @@ Section~\S~\ref{flexheap:sec:methodology} describes the full experimental setup.
 	\subfloat[VG1]{\includegraphics[width=0.245\linewidth]{flexheap/fig/motiv/je_ci4_cs32_d8g.pdf}}
 	\subfloat[\flexheapName{}]{\includegraphics[width=0.245\linewidth]{flexheap/fig/motiv/fh_ci4_cs32_d8g.pdf}}
 	\caption{
-		Heap usage, I/O cache occupancy, and I/O wait over time for the Wikipedia workload in Elasticsearch:
-		(a) G1-90 (with a maximum heap cap of 90\% of DRAM),
-		(b) G1-50 (with a maximum heap cap of 50\% of DRAM),
-		(c) VG1, and
-		(d) \flexheapName{}.
-	}
+		Heap usage, I/O cache occupancy, and I/O wait over time for the Wikipedia workload in Elasticsearch: (a) G1-90 (with a maximum heap cap of 90\% of DRAM), (b) G1-50 (with a maximum heap cap of 50\% of DRAM), (c) VG1, and (d) \flexheapName{}.	}
 	\label{flexheap:fig:motiv}
 \end{figure*}
 
 \begin{figure}[t]
+	\centering
 	\includegraphics[width=0.4\linewidth]{flexheap/fig/motiv/xput_legend.pdf}
 	\\
 	\subfloat[Throughput]{\includegraphics[width=0.3\linewidth]{flexheap/fig/motiv/xput.pdf}}
 	\hspace{10pt}
 	\subfloat[Latency]{\includegraphics[width=0.3\linewidth]{flexheap/fig/motiv/lat.pdf}}
-	\caption{Normalized document ingestion and query search (a) throughput, and
-		(b) p99 latency for the Wikipedia workload in Elasticsearch under G1-90
-		(with a maximum heap cap of 90\% of DRAM), G1-50 (with a maximum heap cap
-		of 50\% of DRAM), VG1, and \flexheapName{}. Results are normalized to G1-90.}
+	\caption{Normalized document ingestion and query search (a) throughput, and (b) p99 latency for the Wikipedia workload in Elasticsearch under G1-90 (with a maximum heap cap of 90\% of DRAM), G1-50 (with a maximum heap cap of 50\% of DRAM), VG1, and \flexheapName{}.
+		Results are normalized to G1-90.}
 	\label{fig:motiv:xput_lat}
 \end{figure}
 
@@ -73,3 +68,5 @@ Figure~\ref{flexheap:fig:motiv}(d) shows \flexheapName{}, which resizes the heap
 During the mixed phase, it prevents the heap from monopolizing DRAM, leaving sufficient room for the I/O cache.
 These results indicate that considering both \flexheapGC{} and I/O stalls enables more efficient DRAM use and higher end-to-end performance.
 We present detailed results in the Section~\S\ref{flexheap:sec:eval}.
+
+

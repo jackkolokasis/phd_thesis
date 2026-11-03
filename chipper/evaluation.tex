@@ -199,6 +199,7 @@ For Workload F, the corresponding reductions are from 4.23~s to 42~ms at the med
 \label{sec:eval-selection}
 
 \begin{figure}[h]
+	\centering
 	\includegraphics[width=.4\linewidth]{chipper/figures/eval/model/p99_query.pdf}
 	\caption{P99 query latency for read and update operations in HBase Workload A under the three region-efficiency models used to rank candidate regions for collection.}
 	\label{fig:model-p99}
@@ -499,3 +500,4 @@ Migrating large objects during Mixed GCs adds their copy cost to latency-critica
 Deferring this work to Full GC removes large-object copying from the Mixed GC evacuation path, shifting the distribution toward shorter pauses.
 Consequently, Mixed GCs perform only the regular evacuation work for which the incremental collector is designed, while large-object migration is performed on the less frequent memory-pressure-relief path.
 The shorter Mixed GC pauses reduce interference with application execution, which leads to both higher achieved throughput and lower P99 query latency.
+

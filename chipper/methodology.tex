@@ -50,6 +50,7 @@ TeraHeap uses Parallel Scavenge with the same thirteen GC threads.
 Table~\ref{tab:configs} summarizes the baselines.
 
 \begin{table}[t]
+	\center
 	\small
 	\setlength{\tabcolsep}{5pt}
 	\caption{Workloads, datasets, and memory configuration.
@@ -110,3 +111,4 @@ We enforce the budget with a \emph{cgroup} memory limit that accounts for the ma
 We report the P99 latency and the throughput that each workload generator measures: YCSB for HBase, the OpenSearch Benchmark for OpenSearch and Lucene, and the Yahoo Streaming Benchmark for Spark.
 For GC metrics, we enable unified JVM logging (\texttt{-Xlog:gc*}) and extract the number of GCs, their type, their pause times.
 \chipperName{} also reports the volume of data it migrates to SH in each GC.
+
